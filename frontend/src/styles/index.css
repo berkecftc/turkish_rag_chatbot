@@ -1,0 +1,111 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 0 0% 100%;
+    --foreground: 240 10% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 4%;
+
+    /* Brand / actions */
+    --primary: 240 6% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 5% 96%;
+    --secondary-foreground: 240 6% 10%;
+    --muted: 240 5% 96%;
+    --muted-foreground: 240 4% 46%;
+    --accent: 240 5% 96%;
+    --accent-foreground: 240 6% 10%;
+
+    /* Semantic states */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 71% 38%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 240 10% 4%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 98%;
+
+    /* Form / borders / focus */
+    --border: 240 6% 90%;
+    --input: 240 6% 90%;
+    --ring: 240 6% 10%;
+    --radius: 0.5rem;
+
+    /* Confidence scale */
+    --confidence-high: 142 71% 38%;
+    --confidence-med: 38 92% 50%;
+    --confidence-low: 0 72% 51%;
+
+    /* Chart palette */
+    --chart-1: 221 83% 53%;
+    --chart-2: 142 71% 45%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --chart-6: 190 90% 42%;
+  }
+
+  .dark {
+    /* Surfaces */
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --card: 240 8% 7%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 8% 7%;
+    --popover-foreground: 0 0% 98%;
+
+    /* Brand / actions */
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 6% 10%;
+    --secondary: 240 4% 16%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 65%;
+    --accent: 240 4% 16%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Semantic states */
+    --destructive: 0 63% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --success: 142 64% 45%;
+    --success-foreground: 240 10% 4%;
+    --warning: 38 95% 56%;
+    --warning-foreground: 240 10% 4%;
+    --info: 217 91% 65%;
+    --info-foreground: 240 10% 4%;
+
+    /* Form / borders / focus */
+    --border: 240 4% 16%;
+    --input: 240 4% 16%;
+    --ring: 240 5% 84%;
+
+    /* Confidence scale */
+    --confidence-high: 142 64% 45%;
+    --confidence-med: 38 95% 56%;
+    --confidence-low: 0 63% 55%;
+
+    /* Chart palette */
+    --chart-1: 217 91% 65%;
+    --chart-2: 142 64% 52%;
+    --chart-3: 38 95% 56%;
+    --chart-4: 280 68% 68%;
+    --chart-5: 340 78% 64%;
+    --chart-6: 190 85% 52%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}

@@ -1,0 +1,39 @@
+# Dev-only overrides: hot reload, source mounts, exposed ports, management UIs.
+# Auto-merged by `docker compose up`. Do NOT use in production.
+
+services:
+  postgres:
+    ports: ["5432:5432"]
+
+  redis:
+    ports: ["6379:6379"]
+
+  rabbitmq:
+    ports:
+      - "5672:5672"     # amqp
+      - "15672:15672"   # management UI
+
+  minio:
+    ports:
+      - "9000:9000"     # api
+      - "9001:9001"     # console
+
+  api:
+    volumes:
+      - ./backend:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    ports: ["8000:8000"]
+
+  worker:
+    volumes:
+      - ./backend:/app
+    command: ["watchmedo", "auto-restart", "--directory=./app", "--pattern=*.py", "--recursive", "--", "celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=DEBUG", "--concurrency=2"]
+
+  frontend:
+    build:
+      target: build
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports: ["5173:5173"]
