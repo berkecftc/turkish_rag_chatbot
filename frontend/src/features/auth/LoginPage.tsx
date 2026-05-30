@@ -1,15 +1,24 @@
 import { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { api } from "@/lib/api";
 import { useAuth } from "@/stores/auth";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+interface LocationState {
+  from?: { pathname?: string };
+}
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const setTokens = useAuth((s) => s.setTokens);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const from = (location.state as LocationState | null)?.from?.pathname ?? "/";
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -18,7 +27,7 @@ export function LoginPage() {
     try {
       const { data } = await api.post("/auth/login", { email, password });
       setTokens(data.access_token, data.refresh_token);
-      navigate("/");
+      navigate(from, { replace: true });
     } catch {
       setError("Giriş başarısız. Bilgilerinizi kontrol edin.");
     } finally {
@@ -27,27 +36,40 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4 rounded-lg border border-border p-6">
-        <h1 className="text-xl font-semibold tracking-tight">Turkish RAG'e giriş</h1>
-        <input
-          type="email" placeholder="E-posta" value={email} required
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
-        />
-        <input
-          type="password" placeholder="Parola" value={password} required
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
-        />
-        {error && <p className="text-sm text-red-500">{error}</p>}
-        <button
-          type="submit" disabled={loading}
-          className="w-full rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-        >
-          {loading ? "Giriş yapılıyor…" : "Giriş yap"}
-        </button>
-      </form>
-    </div>
+    <form
+      onSubmit={onSubmit}
+      className="w-full max-w-sm space-y-4 rounded-xl border border-border bg-card p-6 shadow-sm"
+    >
+      <div className="space-y-1">
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Turkish RAG'e giriş
+        </h1>
+        <p className="text-sm text-muted-foreground">Hesabınıza giriş yapın.</p>
+      </div>
+      <Input
+        type="email"
+        placeholder="E-posta"
+        value={email}
+        required
+        autoComplete="email"
+        onChange={(e) => setEmail(e.target.value)}
+      />
+      <Input
+        type="password"
+        placeholder="Parola"
+        value={password}
+        required
+        autoComplete="current-password"
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
+      <Button type="submit" disabled={loading} className="w-full">
+        {loading ? "Giriş yapılıyor…" : "Giriş yap"}
+      </Button>
+    </form>
   );
 }
