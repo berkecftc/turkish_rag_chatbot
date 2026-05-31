@@ -87,6 +87,25 @@ export const messageRoleLabels: LabelMap<MessageRole> = {
   system: { label: "Sistem", tone: "muted" },
 };
 
+// ── Query intent (RAG) ──────────────────────────────────────────────────────
+// Free-form string from the backend (`query_intent`); taxonomy mirrors
+// backend QueryIntent. Resolved via `intentLabel` with a graceful fallback.
+export const queryIntentLabels: Record<string, string> = {
+  factual: "Bilgi sorgusu",
+  legal: "Hukuki",
+  financial: "Finansal",
+  summarization: "Özetleme",
+  analytical: "Analitik",
+  comparison: "Karşılaştırma",
+  conversational: "Sohbet",
+};
+
+/** Turkish label for a query intent, falling back to the raw value. */
+export function intentLabel(value: string | null | undefined): string {
+  if (value == null || value === "") return "—";
+  return queryIntentLabels[value] ?? value;
+}
+
 /**
  * Resolve a label for an enum value, falling back gracefully to the raw value
  * (with a neutral tone) when the map has no matching entry — protects the UI

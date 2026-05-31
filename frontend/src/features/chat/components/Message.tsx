@@ -1,5 +1,6 @@
 import * as React from "react";
-import { Sparkles, User as UserIcon, FileText } from "lucide-react";
+import { Sparkles, User as UserIcon, FileText, Microscope } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { ChatRow } from "@/features/chat/hooks/useStreamingChat";
 import { MarkdownContent } from "./MarkdownContent";
 import { ConfidenceMeter } from "./ConfidenceMeter";
@@ -82,6 +83,19 @@ function MessageImpl({ row, onCitationActivate, highlightCitation }: MessageProp
             Bu mesaj {historicalCitationCount} kaynağa dayanıyor. Kaynak ayrıntıları yalnızca
             yanıt üretilirken akıştan gelir.
           </p>
+        )}
+
+        {/* Retrieval inspector link — shown when there's no live SourcesList
+            (which carries its own "Kaynakları incele" action) for a persisted,
+            non-streaming assistant message. */}
+        {!row.streaming && !hasLiveCitations && persisted?.id && (
+          <Link
+            to={`/retrieval/${persisted.id}`}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
+          >
+            <Microscope className="size-3.5" aria-hidden="true" />
+            Getirimi incele
+          </Link>
         )}
       </div>
     </div>
