@@ -88,6 +88,20 @@ export function normalizeError(e: unknown): NormalizedError {
     return { code: "error", message: e.message || UNKNOWN_MESSAGE, retriable: false };
   }
 
+  // ── Lightweight HTTP-shaped object ────────────────────────────────────────
+  // Used by non-axios callers (e.g. the streaming SSE client) that have a
+  // status code but no AxiosError instance.
+  if (typeof e === "object" && e !== null && "response" in e) {
+    const response = (e as { response?: { status?: number; data?: unknown } }).response;
+    const status = response?.status;
+    if (status !== undefined) {
+      const problem = isProblemJson(response?.data) ? (response?.data as ProblemJson) : undefined;
+      const code = problem?.title ?? `http_${status}`;
+      const message = problem?.detail ?? STATUS_MESSAGES[status] ?? UNKNOWN_MESSAGE;
+      return { code, message, status, retriable: isRetriable(status) };
+    }
+  }
+
   // ── Unknown ───────────────────────────────────────────────────────────────
   return { code: "unknown", message: UNKNOWN_MESSAGE, retriable: false };
 }

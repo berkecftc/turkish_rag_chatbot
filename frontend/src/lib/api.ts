@@ -16,7 +16,7 @@ api.interceptors.request.use((config) => {
 // Single-flight refresh on 401, then retry the original request once.
 let refreshing: Promise<string> | null = null;
 
-async function refreshAccessToken(): Promise<string> {
+async function doRefresh(): Promise<string> {
   const { refreshToken, setTokens, clear } = useAuth.getState();
   if (!refreshToken) throw new Error("No refresh token");
   try {
@@ -29,14 +29,24 @@ async function refreshAccessToken(): Promise<string> {
   }
 }
 
+/**
+ * Single-flight access-token refresh. Concurrent callers (the axios interceptor
+ * AND the streaming SSE client) share the same in-flight promise so the refresh
+ * endpoint is only hit once. Exported so `shared/streaming/sseClient.ts` can
+ * reuse the exact same logic instead of replicating it.
+ */
+export function refreshAccessToken(): Promise<string> {
+  refreshing ??= doRefresh().finally(() => (refreshing = null));
+  return refreshing;
+}
+
 api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      refreshing ??= refreshAccessToken().finally(() => (refreshing = null));
-      const token = await refreshing;
+      const token = await refreshAccessToken();
       original.headers.Authorization = `Bearer ${token}`;
       return api(original);
     }
