@@ -1,5 +1,5 @@
 import * as React from "react";
-import { NavLink, Outlet, useLocation, useNavigate, Link } from "react-router-dom";
+import { NavLink, Outlet, useLocation, Link } from "react-router-dom";
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -19,6 +19,7 @@ import { useAuth } from "@/stores/auth";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { useIsMobile } from "@/shared/hooks/useMediaQuery";
 import { usePermissions, decodeAccessToken } from "@/shared/lib/jwt";
+import { useLogout } from "@/features/auth/session";
 import { NAV_ITEMS, SEGMENT_LABELS, BRAND_NAME } from "@/i18n/nav";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -87,9 +88,8 @@ function Brand({ collapsed }: { collapsed: boolean }) {
 /* ------------------------------ User menu ------------------------------- */
 
 function UserMenu() {
-  const navigate = useNavigate();
   const accessToken = useAuth((s) => s.accessToken);
-  const clear = useAuth((s) => s.clear);
+  const logout = useLogout();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
 
@@ -111,11 +111,11 @@ function UserMenu() {
     };
   }, [open]);
 
-  function logout() {
-    // Client-only: no server logout endpoint exists. Clear tokens + redirect.
+  function handleLogout() {
+    // Client-only: no server logout endpoint exists. `useLogout` clears tokens,
+    // wipes the Query cache, and redirects to /login.
     setOpen(false);
-    clear();
-    navigate("/login", { replace: true });
+    logout();
   }
 
   const initial = (claims?.sub?.[0] ?? "U").toUpperCase();
@@ -151,7 +151,7 @@ function UserMenu() {
           <button
             type="button"
             role="menuitem"
-            onClick={logout}
+            onClick={handleLogout}
             className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <LogOut className="size-4" aria-hidden="true" />
