@@ -17,6 +17,7 @@ import { useIsMobile } from "@/shared/hooks/useMediaQuery";
 import { formatRelativeTime } from "@/shared/lib/format";
 import { useConversations } from "@/features/rag/api";
 import { useStreamingChat } from "@/features/chat/hooks/useStreamingChat";
+import { usePreferences } from "@/stores/preferences";
 import { MessageList } from "./components/MessageList";
 import { Composer } from "./components/Composer";
 import { StreamingStatus } from "./components/StreamingStatus";
@@ -170,8 +171,11 @@ export function ChatPage() {
   const streamingRow = messages.find((m) => m.streaming) ?? null;
   const stableRows = messages.filter((m) => !m.streaming);
 
+  // Respect the user's client-side preference for follow-up suggestions.
+  const followUpsEnabled = usePreferences((s) => s.showFollowUps);
   const hasThread = messages.length > 0;
-  const showFollowUps = !isStreaming && lastQuery != null && hasThread;
+  const showFollowUps =
+    followUpsEnabled && !isStreaming && lastQuery != null && hasThread;
 
   const handleCitationActivate = (n: number) => {
     setHighlightCitation(n);

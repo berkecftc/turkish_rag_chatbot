@@ -241,9 +241,18 @@ export function AppLayout() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background text-foreground">
+      {/* Skip-to-content link: visible only on keyboard focus. */}
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground focus:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        İçeriğe geç
+      </a>
+
       {/* Desktop sidebar */}
       {!isMobile && (
         <aside
+          aria-label="Birincil gezinme"
           className={cn(
             "flex shrink-0 flex-col border-r border-border bg-muted/30 transition-[width] duration-200",
             desktopCollapsed ? "w-16" : "w-60",
@@ -278,7 +287,10 @@ export function AppLayout() {
             onClick={() => setMobileNavOpen(false)}
             aria-hidden="true"
           />
-          <aside className="animate-fade-in relative flex w-64 flex-col border-r border-border bg-popover">
+          <aside
+            aria-label="Birincil gezinme"
+            className="animate-fade-in relative flex w-64 flex-col border-r border-border bg-popover"
+          >
             <div className="flex h-14 items-center justify-between pr-2">
               <Brand collapsed={false} />
               <Button
@@ -339,7 +351,7 @@ export function AppLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6 sm:p-8">
+        <main id="main" tabIndex={-1} className="flex-1 overflow-auto p-6 sm:p-8 focus:outline-none">
           <Outlet />
         </main>
       </div>

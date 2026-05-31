@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   MessageSquare,
+  MessagesSquare,
   FileText,
   Upload,
   Search,
@@ -24,6 +25,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "Panel", icon: LayoutDashboard, end: true },
   { to: "/chat", label: "Sohbet", icon: MessageSquare },
+  { to: "/conversations", label: "Konuşmalar", icon: MessagesSquare },
   { to: "/documents", label: "Belgeler", icon: FileText },
   { to: "/upload", label: "Yükleme", icon: Upload },
   { to: "/search", label: "Arama", icon: Search },

@@ -109,3 +109,20 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/*
+ * Reduced-motion: framer-motion is already gated via <MotionConfig
+ * reducedMotion="user">, but CSS keyframe animations (shimmer, fade-in,
+ * slide-up, caret-blink, spinners) need their own guard. Honour the user's
+ * system preference by neutralising animations and transitions.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

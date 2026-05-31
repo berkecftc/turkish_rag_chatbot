@@ -2,6 +2,7 @@ import * as React from "react";
 import { Sparkles, User as UserIcon, FileText, Microscope } from "lucide-react";
 import { Link } from "react-router-dom";
 import type { ChatRow } from "@/features/chat/hooks/useStreamingChat";
+import { usePreferences } from "@/stores/preferences";
 import { MarkdownContent } from "./MarkdownContent";
 import { ConfidenceMeter } from "./ConfidenceMeter";
 import { SourcesList } from "./SourcesList";
@@ -23,6 +24,8 @@ export interface MessageProps {
  * whole thread (the draft row changes identity via `streaming`/content).
  */
 function MessageImpl({ row, onCitationActivate, highlightCitation }: MessageProps) {
+  const showConfidence = usePreferences((s) => s.showConfidence);
+
   if (row.role === "user") {
     return (
       <div className="flex justify-end">
@@ -65,7 +68,7 @@ function MessageImpl({ row, onCitationActivate, highlightCitation }: MessageProp
           {row.streaming && <StreamCaret />}
         </div>
 
-        {!row.streaming && (confidence != null || (flags?.length ?? 0) > 0) && (
+        {showConfidence && !row.streaming && (confidence != null || (flags?.length ?? 0) > 0) && (
           <ConfidenceMeter score={confidence ?? undefined} hallucinationFlags={flags} />
         )}
 

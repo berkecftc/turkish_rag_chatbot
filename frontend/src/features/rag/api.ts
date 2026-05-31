@@ -65,6 +65,21 @@ export function useConversations(params: ListParams = {}): UseQueryResult<Conver
   });
 }
 
+/**
+ * Paginated conversations list — keyed by `{limit, offset}` so each page is
+ * cached independently (used by the full Conversation History view). Distinct
+ * from `useConversations` (which keys only on the root for rail/recent use).
+ */
+export function useConversationsPage(
+  params: ListParams = {},
+): UseQueryResult<ConversationOut[]> {
+  return useQuery({
+    queryKey: [...queryKeys.conversations(), "page", params] as const,
+    queryFn: () => listConversations(params),
+    placeholderData: (prev) => prev,
+  });
+}
+
 export function useMessages(
   conversationId: string | undefined,
 ): UseQueryResult<MessageOut[]> {

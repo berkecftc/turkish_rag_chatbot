@@ -1,20 +1,190 @@
-import { MessagesSquare } from "lucide-react";
+import * as React from "react";
+import { Link } from "react-router-dom";
+import { MessagesSquare, Search as SearchIcon, MessageSquare, Coins, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
+import { Input } from "@/components/ui/input";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
+import { ErrorState } from "@/components/ErrorState";
+import { LoadingState } from "@/components/LoadingState";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useConversationsPage } from "@/features/rag/api";
+import { useDebounce } from "@/shared/hooks/useDebounce";
+import { formatRelativeTime, formatNumber, truncate } from "@/shared/lib/format";
+import type { ConversationOut } from "@/shared/types/api";
+
+const PAGE_SIZE = 20;
+
+function ConversationCard({ conv }: { conv: ConversationOut }) {
+  const title = conv.title?.trim() || "Başlıksız konuşma";
+  return (
+    <Link
+      to={`/chat/${conv.id}`}
+      className="group block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-sm font-medium text-foreground">{title}</h3>
+          {conv.summary && (
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {truncate(conv.summary, 160)}
+            </p>
+          )}
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <MessageSquare className="size-3.5" aria-hidden="true" />
+              {formatNumber(conv.total_messages)} mesaj
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <Coins className="size-3.5" aria-hidden="true" />
+              {formatNumber(conv.total_tokens_used)} jeton
+            </span>
+            <span>
+              {conv.last_message_at
+                ? `Son: ${formatRelativeTime(conv.last_message_at)}`
+                : `Oluşturuldu: ${formatRelativeTime(conv.created_at)}`}
+            </span>
+          </div>
+        </div>
+        <ChevronRight
+          className="mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5"
+          aria-hidden="true"
+        />
+      </div>
+    </Link>
+  );
+}
 
 export function ConversationsPage() {
+  const [page, setPage] = React.useState(0);
+  const [rawSearch, setRawSearch] = React.useState("");
+  const search = useDebounce(rawSearch, 250).trim().toLocaleLowerCase("tr-TR");
+
+  const { data, isLoading, isError, isFetching, refetch } = useConversationsPage({
+    limit: PAGE_SIZE,
+    offset: page * PAGE_SIZE,
+  });
+
+  const conversations = data ?? [];
+
+  // Client-side title search over the loaded page.
+  const filtered = React.useMemo(() => {
+    if (!search) return conversations;
+    return conversations.filter((c) =>
+      (c.title ?? "").toLocaleLowerCase("tr-TR").includes(search),
+    );
+  }, [conversations, search]);
+
+  const hasNextPage = conversations.length === PAGE_SIZE;
+  const showInitialLoading = isLoading && page === 0;
+
   return (
-    <div className="mx-auto max-w-5xl">
+    <div className="mx-auto max-w-4xl">
       <PageHeader
         icon={<MessagesSquare aria-hidden="true" />}
         title="Konuşmalar"
         description="Geçmiş sohbet konuşmalarınız."
       />
-      <EmptyState
-        icon={<MessagesSquare aria-hidden="true" />}
-        title="Konuşma geçmişi yakında"
-        description="Bu ekran Faz 13 aşamasında uygulanacak. Yapı ve yönlendirme hazır."
-      />
+
+      <div className="mb-5">
+        <label htmlFor="conv-search" className="sr-only">
+          Konuşmalarda ara
+        </label>
+        <div className="relative">
+          <SearchIcon
+            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden="true"
+          />
+          <Input
+            id="conv-search"
+            type="search"
+            value={rawSearch}
+            onChange={(e) => setRawSearch(e.target.value)}
+            placeholder="Başlığa göre ara…"
+            className="pl-9"
+          />
+        </div>
+      </div>
+
+      {showInitialLoading && (
+        <div className="space-y-3" aria-hidden="true">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
+      )}
+
+      {isError && !isLoading && (
+        <ErrorState
+          title="Konuşmalar yüklenemedi"
+          description="Konuşma listesi alınırken bir hata oluştu."
+          retryLabel="Tekrar dene"
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!showInitialLoading && !isError && conversations.length === 0 && (
+        <EmptyState
+          icon={<MessagesSquare aria-hidden="true" />}
+          title="Henüz konuşma yok"
+          description="Bir sohbet başlattığınızda konuşmalarınız burada görünecek."
+          action={
+            <Link to="/chat" className={buttonVariants({ size: "sm" })}>
+              Yeni sohbet
+            </Link>
+          }
+        />
+      )}
+
+      {!showInitialLoading && !isError && conversations.length > 0 && (
+        <>
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<SearchIcon aria-hidden="true" />}
+              title="Sonuç bulunamadı"
+              description={`"${rawSearch}" için bu sayfada eşleşen konuşma yok.`}
+            />
+          ) : (
+            <ul className="space-y-3">
+              {filtered.map((conv) => (
+                <li key={conv.id}>
+                  <ConversationCard conv={conv} />
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {/* Pagination */}
+          {(page > 0 || hasNextPage) && (
+            <div className="mt-6 flex items-center justify-between gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={page === 0 || isFetching}
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+              >
+                Önceki
+              </Button>
+              <span className="text-xs text-muted-foreground" aria-live="polite">
+                Sayfa {page + 1}
+                {isFetching && " · yükleniyor…"}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!hasNextPage || isFetching}
+                onClick={() => setPage((p) => p + 1)}
+              >
+                Sonraki
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {isFetching && !showInitialLoading && page === 0 && conversations.length === 0 && (
+        <LoadingState srLabel="Konuşmalar yükleniyor" />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@ import * as React from "react";
 import { isRouteErrorResponse, useRouteError, useNavigate } from "react-router-dom";
 import { ErrorState } from "@/components/ErrorState";
 import { Button } from "@/components/ui/button";
+import { recordReactError } from "@/shared/analytics/observability";
 
 function errorMessage(error: unknown): string {
   if (error instanceof Error) return error.message;
@@ -32,9 +33,8 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
-    // TODO(Phase 13): forward to shared/analytics sink.
-    // eslint-disable-next-line no-console
-    console.error("ErrorBoundary caught:", error, info.componentStack);
+    // Forward to the observability sink (console in dev, no-op/real sink in prod).
+    recordReactError(error, info.componentStack);
   }
 
   reset = () => this.setState({ error: null });

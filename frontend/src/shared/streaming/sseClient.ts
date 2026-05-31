@@ -20,6 +20,7 @@
 
 import { useAuth } from "@/stores/auth";
 import { refreshAccessToken } from "@/lib/api";
+import { recordStreamInterruption } from "@/shared/analytics/observability";
 import { normalizeError } from "@/shared/lib/normalizeError";
 import type { ChatRequest, StreamEvent } from "@/shared/types/api";
 import type { StreamHandlers } from "./types";
@@ -167,8 +168,14 @@ export async function streamChat(
     const tail = buffer.trim();
     if (tail) processBlock(tail, handlers);
   } catch (err) {
-    if (isAbortError(err) || signal.aborted) return; // quiet on abort
-    handlers.onError(normalizeError(err));
+    if (isAbortError(err) || signal.aborted) {
+      // User stopped generation (or navigated away) — observe, stay quiet.
+      recordStreamInterruption("abort");
+      return;
+    }
+    const normalized = normalizeError(err);
+    recordStreamInterruption("error", { message: normalized.message, code: normalized.code });
+    handlers.onError(normalized);
   }
 }
 
