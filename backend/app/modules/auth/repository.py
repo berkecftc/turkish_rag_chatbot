@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.infrastructure.repository import BaseRepository
-from app.modules.auth.models import Membership, RefreshToken, User
+from app.modules.auth.models import Membership, RefreshToken, Role, User
 
 
 class UserRepository(BaseRepository[User]):
@@ -21,7 +21,10 @@ class UserRepository(BaseRepository[User]):
         stmt = (
             select(Membership)
             .where(Membership.user_id == user_id)
-            .options(selectinload(Membership.role))
+            # Eager-load role AND its permissions: AuthService reads
+            # membership.role.permissions, which would otherwise trigger an
+            # async lazy-load (MissingGreenlet) and 500 the login.
+            .options(selectinload(Membership.role).selectinload(Role.permissions))
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 

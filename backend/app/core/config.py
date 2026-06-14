@@ -101,6 +101,16 @@ class Settings(BaseSettings):
             return [item.strip() for item in v.split(",") if item.strip()]
         return v
 
+    @field_validator("jwt_private_key", "jwt_public_key", mode="before")
+    @classmethod
+    def _normalize_pem(cls, v: object) -> object:
+        # PEM keys are often stored single-line in .env with literal "\n"
+        # escapes. RS256 (PyJWT/cryptography) needs real newlines to parse,
+        # so unescape them here. No-op for keys that already use newlines.
+        if isinstance(v, str) and "\\n" in v:
+            return v.replace("\\n", "\n")
+        return v
+
 
 @lru_cache
 def get_settings() -> Settings:
