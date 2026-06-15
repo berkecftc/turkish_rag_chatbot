@@ -197,5 +197,22 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
 def ingest_document(self, document_id: str, tenant_id: str, job_id: str) -> dict:
     """Run the full ingestion pipeline for one document."""
     log.info("ingest.start", document_id=document_id, attempt=self.request.retries)
-    asyncio.run(_run_pipeline(document_id, tenant_id, job_id))
+    asyncio.run(_run_and_cleanup(document_id, tenant_id, job_id))
     return {"document_id": document_id, "status": "done"}
+
+
+async def _run_and_cleanup(document_id: str, tenant_id: str, job_id: str) -> None:
+    """Run the pipeline, then dispose the async engine within this loop.
+
+    Celery runs each task via a fresh ``asyncio.run`` loop, but the module-level
+    async engine pools connections bound to the loop that first used them. Without
+    disposing here, the *next* task's new loop inherits a connection bound to the
+    previous (closed) loop -> "got Future attached to a different loop". Disposing
+    inside the same loop releases those connections so each task starts clean.
+    """
+    from app.core.db import engine
+
+    try:
+        await _run_pipeline(document_id, tenant_id, job_id)
+    finally:
+        await engine.dispose()

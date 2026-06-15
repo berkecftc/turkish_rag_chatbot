@@ -24,7 +24,14 @@ class PaddleOcrStage:
         if self._ocr is None:
             from paddleocr import PaddleOCR
 
-            self._ocr = PaddleOCR(use_angle_cls=True, lang="ch", show_log=False)
+            # PaddleOCR 3.x renamed/removed several 2.x kwargs (show_log gone,
+            # use_angle_cls -> use_textline_orientation). Try the modern
+            # signature first, then fall back for older installs. lang="latin"
+            # covers Turkish (Latin script); "ch" would mis-recognize it.
+            try:
+                self._ocr = PaddleOCR(use_textline_orientation=True, lang="latin")
+            except (TypeError, ValueError):
+                self._ocr = PaddleOCR(lang="latin")
         return self._ocr
 
     async def run(self, ctx: IngestionContext) -> IngestionContext:
@@ -35,7 +42,14 @@ class PaddleOcrStage:
         if not needs_ocr:
             return ctx
 
-        ocr_blocks = await self._ocr_file(ctx, sparse_pages)
+        # OCR is best-effort: a failure on a few scanned pages must not sink an
+        # otherwise text-extractable document. Log and continue with what we have.
+        try:
+            ocr_blocks = await self._ocr_file(ctx, sparse_pages)
+        except Exception as exc:  # noqa: BLE001
+            log.warning("ocr.skipped", document_id=ctx.document_id, error=str(exc))
+            return ctx
+
         ctx.blocks = ctx.blocks + ocr_blocks
         ctx.blocks.sort(key=lambda b: (b.page or 0))
         log.info("ocr.done", document_id=ctx.document_id, new_blocks=len(ocr_blocks))
@@ -75,13 +89,27 @@ class PaddleOcrStage:
 
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
         arr = np.array(img)
-        result = self._get_ocr().ocr(arr, cls=True)
+        ocr = self._get_ocr()
+
+        # PaddleOCR 3.x: predict() -> [OCRResult(dict)] with rec_texts/rec_scores.
+        # 2.x: ocr(arr, cls=True) -> [[ [box, (text, conf)], ... ]]. Support both.
+        if hasattr(ocr, "predict"):
+            result = ocr.predict(arr)
+        else:  # pragma: no cover - legacy 2.x path
+            result = ocr.ocr(arr)
 
         blocks: list[TextBlock] = []
-        for line_group in (result or []):
-            for item in (line_group or []):
-                bbox_raw, (text, conf) = item
-                if text and text.strip():
-                    blocks.append(TextBlock(text=text.strip(), page=page, confidence=float(conf)))
+        for res in (result or []):
+            if isinstance(res, dict) or hasattr(res, "get"):  # 3.x OCRResult
+                texts = res.get("rec_texts") or []
+                scores = res.get("rec_scores") or []
+                for text, conf in zip(texts, scores):
+                    if text and text.strip():
+                        blocks.append(TextBlock(text=text.strip(), page=page, confidence=float(conf)))
+            else:  # 2.x line group
+                for item in (res or []):
+                    bbox_raw, (text, conf) = item
+                    if text and text.strip():
+                        blocks.append(TextBlock(text=text.strip(), page=page, confidence=float(conf)))
 
         return blocks

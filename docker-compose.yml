@@ -103,7 +103,10 @@ services:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
       redis: { condition: service_healthy }
-    command: ["celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=INFO", "--concurrency=2"]
+    # -Q must include 'ingestion': ingest_document is routed there (see
+    # celery_app task_routes). Without it the worker only drains 'default'
+    # and ingestion jobs sit queued forever.
+    command: ["celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "ingestion,default"]
     restart: unless-stopped
 
   frontend:
