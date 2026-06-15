@@ -21,6 +21,13 @@ settings = get_settings()
 async def lifespan(_: FastAPI):
     configure_logging()
     get_logger("startup").info("api.start", env=settings.app_env)
+    # Ensure the object-storage bucket exists (idempotent, self-healing).
+    try:
+        from app.infrastructure.ingestion.storage.minio_storage import MinioStorage
+
+        MinioStorage(settings).ensure_bucket()
+    except Exception:  # noqa: BLE001 - storage may be briefly unready; uploads will surface errors
+        get_logger("startup").warning("storage.ensure_bucket_failed", exc_info=True)
     yield
     await close_redis()
 

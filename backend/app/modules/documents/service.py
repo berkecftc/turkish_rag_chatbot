@@ -86,8 +86,11 @@ class DocumentUploadService:
         doc_id = uuid.uuid4()
         storage_key = _storage_key(tenant_id, doc_id, result.safe_filename)
 
-        await self._storage.put_stream(storage_key, fileobj, result.mime_type)
-        fileobj.seek(0)
+        # Upload the bytes we already hold in memory. put_stream shares a
+        # single BytesIO with boto3's threaded transfer, which closed the
+        # buffer mid-flight ("I/O operation on closed file"); a direct
+        # put_object with the raw bytes is simpler and safe for <=50MB uploads.
+        await self._storage.put(storage_key, raw, result.mime_type)
 
         doc = Document(
             id=doc_id,
