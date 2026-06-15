@@ -21,6 +21,21 @@ from app.infrastructure.rag.context.packer import PackedContext
 
 log = get_logger("generation.orchestrator")
 
+
+def _friendly_llm_error(exc: Exception) -> str:
+    """Map a provider exception to a clean Turkish message for the user."""
+    text = str(exc).lower()
+    if "429" in text or "resource_exhausted" in text or "quota" in text or "rate limit" in text:
+        return (
+            "⚠️ Yapay zeka servisi şu anda istek sınırına ulaştı "
+            "(Gemini ücretsiz katman: dakikada 5 istek). Lütfen birkaç saniye "
+            "bekleyip tekrar deneyin."
+        )
+    return (
+        "⚠️ Yanıt üretilirken yapay zeka servisinde bir sorun oluştu. "
+        "Lütfen biraz sonra tekrar deneyin."
+    )
+
 _SYSTEM_PROMPT = """\
 You are an intelligent enterprise knowledge assistant specialized in Turkish business documents.
 
@@ -81,8 +96,19 @@ class GeminiOrchestrator:
     ) -> AsyncIterator[str]:
         system = self._build_system(ctx, self._format_history(conversation_history))
         messages = [{"role": "user", "content": user_query}]
-        async for chunk in self._llm.stream(system=system, messages=messages):
-            yield chunk
+        produced = False
+        try:
+            async for chunk in self._llm.stream(system=system, messages=messages):
+                produced = True
+                yield chunk
+        except Exception as exc:  # noqa: BLE001
+            # A provider error (quota/429, safety, network) must not crash the
+            # SSE stream. If it fails before any token, surface a clean Turkish
+            # message so the user understands what happened.
+            message = _friendly_llm_error(exc)
+            log.warning("generation.stream_failed", error=str(exc)[:300], produced=produced)
+            if not produced:
+                yield message
 
     @staticmethod
     def _format_history(history: list[dict]) -> str:
