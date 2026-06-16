@@ -33,6 +33,9 @@ services:
     build:
       target: build
     command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    environment:
+      # Vite dev proxy target: reach the API by its compose service name.
+      VITE_API_PROXY_TARGET: http://api:8000
     volumes:
       - ./frontend:/app
       - /app/node_modules

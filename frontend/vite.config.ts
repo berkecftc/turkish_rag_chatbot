@@ -19,7 +19,13 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/api": { target: "http://localhost:8000", changeOrigin: true },
+      // In Docker the API is reachable as the compose service `api`, not
+      // localhost (which is the frontend container itself). Configurable via
+      // env so host-run `npm run dev` keeps using localhost:8000.
+      "/api": {
+        target: process.env.VITE_API_PROXY_TARGET || "http://localhost:8000",
+        changeOrigin: true,
+      },
     },
   },
 });
