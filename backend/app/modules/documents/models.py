@@ -5,7 +5,18 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Enum as SAEnum, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import (
+    BigInteger,
+    Enum as SAEnum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    func,
+    text,
+)
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -31,7 +42,18 @@ class DocumentStatus(enum.StrEnum):
 
 class Document(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "documents"
-    __table_args__ = (UniqueConstraint("tenant_id", "content_hash", name="uq_documents_tenant_hash"),)
+    # Partial unique index: a content hash is unique only among *active* docs.
+    # A full UniqueConstraint also counts soft-deleted rows, so re-uploading a
+    # previously deleted document collided (IntegrityError -> 500).
+    __table_args__ = (
+        Index(
+            "uq_documents_tenant_hash",
+            "tenant_id",
+            "content_hash",
+            unique=True,
+            postgresql_where=text("deleted_at IS NULL"),
+        ),
+    )
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), index=True)
     owner_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True))
