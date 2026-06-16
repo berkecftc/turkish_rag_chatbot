@@ -18,6 +18,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Native FS events don't cross the Windows host -> Linux container bind
+    // mount, so Vite never sees source edits and keeps serving stale modules.
+    // Poll instead so HMR works in Docker dev.
+    watch: { usePolling: true, interval: 300 },
     proxy: {
       // In Docker the API is reachable as the compose service `api`, not
       // localhost (which is the frontend container itself). Configurable via
