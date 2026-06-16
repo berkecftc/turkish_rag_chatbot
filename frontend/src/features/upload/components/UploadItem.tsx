@@ -1,12 +1,9 @@
-import * as React from "react";
 import { CheckCircle2, FileText, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { useUploadDocument } from "@/features/documents/api";
 import { formatBytes, formatPercent } from "@/shared/lib/format";
-import { normalizeError } from "@/shared/lib/normalizeError";
 import { IngestionStepper } from "@/features/upload/components/IngestionStepper";
 import type { UploadItemState } from "@/features/upload/types";
 import { toast } from "sonner";
@@ -20,49 +17,11 @@ export interface UploadItemProps {
 }
 
 /**
- * A single file row. Owns its upload mutation (so progress stays local), then
- * transitions into the live ingestion tracker once the 202 arrives.
+ * A single file row — purely presentational. The upload itself is driven by the
+ * (stable) UploadPage so it survives StrictMode remounts; this component just
+ * renders the current phase and hosts the live ingestion tracker.
  */
 export function UploadItem({ item, onChange, onRemove }: UploadItemProps) {
-  const upload = useUploadDocument();
-  // Guard so React 18 StrictMode double-effects don't double-upload.
-  const startedRef = React.useRef(false);
-
-  React.useEffect(() => {
-    if (startedRef.current || item.phase !== "queued") return;
-    startedRef.current = true;
-    onChange(item.id, { phase: "uploading", progress: 0 });
-
-    upload.mutate(
-      {
-        file: item.file,
-        onUploadProgress: (e) => {
-          const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
-          onChange(item.id, { progress: pct });
-        },
-      },
-      {
-        onSuccess: (res) => {
-          onChange(item.id, {
-            phase: "ingesting",
-            progress: 100,
-            upload: res,
-            jobId: res.job_id,
-          });
-          if (res.is_duplicate) {
-            toast.info(`"${item.file.name}" zaten mevcut (sürüm ${res.version}).`);
-          }
-        },
-        onError: (e) => {
-          const message = normalizeError(e).message;
-          onChange(item.id, { phase: "failed", error: message });
-          toast.error(`"${item.file.name}" yüklenemedi: ${message}`);
-        },
-      },
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item.id, item.phase]);
-
   const { phase } = item;
   const removable = phase === "done" || phase === "failed" || phase === "queued";
 
@@ -120,9 +79,14 @@ export function UploadItem({ item, onChange, onRemove }: UploadItemProps) {
       {(phase === "ingesting" || phase === "done") && item.jobId && (
         <IngestionStepper
           jobId={item.jobId}
-          onTerminal={(succeeded) =>
-            onChange(item.id, { phase: succeeded ? "done" : "failed" })
-          }
+          onTerminal={(succeeded) => {
+            onChange(item.id, { phase: succeeded ? "done" : "failed" });
+            if (succeeded) {
+              toast.success(`"${item.file.name}" işlendi — sohbet ve aramada kullanılabilir.`);
+            } else {
+              toast.error(`"${item.file.name}" işlenemedi.`);
+            }
+          }}
         />
       )}
 

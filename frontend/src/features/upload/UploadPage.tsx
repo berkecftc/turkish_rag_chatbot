@@ -10,6 +10,8 @@ import { Dropzone } from "@/features/upload/components/Dropzone";
 import { UploadList } from "@/features/upload/components/UploadList";
 import { MAX_UPLOAD_MB } from "@/features/upload/constants";
 import type { UploadItemState } from "@/features/upload/types";
+import { useUploadDocument } from "@/features/documents/api";
+import { normalizeError } from "@/shared/lib/normalizeError";
 import { formatBytes } from "@/shared/lib/format";
 
 let counter = 0;
@@ -33,24 +35,67 @@ function rejectionMessage(rejection: FileRejection): string {
 export function UploadPage() {
   const [items, setItems] = React.useState<UploadItemState[]>([]);
 
-  const handleAccepted = React.useCallback((files: File[]) => {
-    setItems((prev) => [
-      ...files.map<UploadItemState>((file) => ({
+  // The upload mutation lives on the (stable) page, not on each row. Starting
+  // it from an event handler — not a child effect — avoids the React 18
+  // StrictMode mount/unmount/remount cycle silently dropping the mutation's
+  // resolution, which left rows stuck at "Yükleniyor — %100".
+  const upload = useUploadDocument();
+  const uploadRef = React.useRef(upload);
+  uploadRef.current = upload;
+
+  const handleChange = React.useCallback((id: string, patch: Partial<UploadItemState>) => {
+    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
+  }, []);
+
+  const startUpload = React.useCallback(
+    (item: UploadItemState) => {
+      handleChange(item.id, { phase: "uploading", progress: 0 });
+      uploadRef.current
+        .mutateAsync({
+          file: item.file,
+          onUploadProgress: (e) => {
+            const pct = e.total ? Math.round((e.loaded / e.total) * 100) : 0;
+            handleChange(item.id, { progress: pct });
+          },
+        })
+        .then((res) => {
+          handleChange(item.id, {
+            phase: "ingesting",
+            progress: 100,
+            upload: res,
+            jobId: res.job_id ?? undefined,
+          });
+          if (res.is_duplicate) {
+            toast.info(`"${item.file.name}" zaten mevcut (sürüm ${res.version}).`);
+          } else {
+            toast.success(`"${item.file.name}" yüklendi — işleniyor…`);
+          }
+        })
+        .catch((e) => {
+          const message = normalizeError(e).message;
+          handleChange(item.id, { phase: "failed", error: message });
+          toast.error(`"${item.file.name}" yüklenemedi: ${message}`);
+        });
+    },
+    [handleChange],
+  );
+
+  const handleAccepted = React.useCallback(
+    (files: File[]) => {
+      const newItems = files.map<UploadItemState>((file) => ({
         id: nextId(),
         file,
         phase: "queued",
         progress: 0,
-      })),
-      ...prev,
-    ]);
-  }, []);
+      }));
+      setItems((prev) => [...newItems, ...prev]);
+      for (const item of newItems) startUpload(item);
+    },
+    [startUpload],
+  );
 
   const handleRejected = React.useCallback((rejections: FileRejection[]) => {
     for (const r of rejections) toast.error(rejectionMessage(r));
-  }, []);
-
-  const handleChange = React.useCallback((id: string, patch: Partial<UploadItemState>) => {
-    setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));
   }, []);
 
   const handleRemove = React.useCallback((id: string) => {
