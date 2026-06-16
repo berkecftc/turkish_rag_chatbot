@@ -17,6 +17,18 @@ def _now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
+class _PassthroughExtractor:
+    """No-op extract stage for inputs with no embedded text (e.g. images).
+
+    Leaves ctx.file_bytes untouched so the OCR stage can read the raw image.
+    """
+
+    name = "extract"
+
+    async def run(self, ctx):  # type: ignore[no-untyped-def]
+        return ctx
+
+
 def _build_pipeline(mime_type: str):
     from app.infrastructure.ingestion.chunking.token_chunker import TokenChunkerStage
     from app.infrastructure.ingestion.embedding.bge_embedder import BgeEmbedderStage
@@ -24,7 +36,12 @@ def _build_pipeline(mime_type: str):
     from app.infrastructure.ingestion.ocr.paddle_ocr import PaddleOcrStage
     from app.workers.pipeline import Pipeline
 
-    if mime_type == "application/pdf":
+    if mime_type.startswith("image/"):
+        # Images carry no embedded text; skip extraction and let the OCR stage
+        # read the whole image. Routing images through PdfExtractorStage made
+        # pypdf choke ("Stream has ended unexpectedly").
+        extractor = _PassthroughExtractor()
+    elif mime_type == "application/pdf":
         from app.infrastructure.ingestion.extractors.pdf_extractor import PdfExtractorStage
         extractor = PdfExtractorStage()
     elif mime_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":

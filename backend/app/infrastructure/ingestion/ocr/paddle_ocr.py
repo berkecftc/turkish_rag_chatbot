@@ -1,16 +1,21 @@
-"""PaddleOCR adapter. Handles scanned PDFs and images. Converts PDF pages to
-images at the configured DPI, then runs OCR on sparse pages only."""
+"""OCR adapter (Tesseract). Handles scanned PDFs and images: converts PDF
+pages to images at the configured DPI, then OCRs images / sparse pages.
+
+Uses Tesseract with the Turkish model (`tesseract-ocr-tur`, shipped in the
+image) via pytesseract. PaddleOCR was dropped: its inference engine
+(`paddlepaddle`) isn't installed and PP-OCRv5 has no Turkish/Latin model,
+whereas Tesseract handles Turkish printed text well out of the box.
+"""
 from __future__ import annotations
 
 import io
-import uuid
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.ports import TextBlock
-from app.workers.pipeline import IngestionContext, Stage
+from app.workers.pipeline import IngestionContext
 
-log = get_logger("ocr.paddle")
+log = get_logger("ocr.tesseract")
 
 
 class PaddleOcrStage:
@@ -18,21 +23,8 @@ class PaddleOcrStage:
 
     def __init__(self) -> None:
         self._settings = get_settings()
-        self._ocr = None  # lazy init — model load is expensive
-
-    def _get_ocr(self):
-        if self._ocr is None:
-            from paddleocr import PaddleOCR
-
-            # PaddleOCR 3.x renamed/removed several 2.x kwargs (show_log gone,
-            # use_angle_cls -> use_textline_orientation). Try the modern
-            # signature first, then fall back for older installs. lang="latin"
-            # covers Turkish (Latin script); "ch" would mis-recognize it.
-            try:
-                self._ocr = PaddleOCR(use_textline_orientation=True, lang="latin")
-            except (TypeError, ValueError):
-                self._ocr = PaddleOCR(lang="latin")
-        return self._ocr
+        # Turkish primary + English for mixed Latin/numeric content.
+        self._lang = "tur+eng"
 
     async def run(self, ctx: IngestionContext) -> IngestionContext:
         sparse_pages: list[int] = ctx.metadata.get("sparse_pages", [])
@@ -84,32 +76,15 @@ class PaddleOcrStage:
         return blocks
 
     def _run_ocr_bytes(self, img_bytes: bytes, page: int) -> list[TextBlock]:
-        import numpy as np
+        import pytesseract
         from PIL import Image
 
         img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
-        arr = np.array(img)
-        ocr = self._get_ocr()
-
-        # PaddleOCR 3.x: predict() -> [OCRResult(dict)] with rec_texts/rec_scores.
-        # 2.x: ocr(arr, cls=True) -> [[ [box, (text, conf)], ... ]]. Support both.
-        if hasattr(ocr, "predict"):
-            result = ocr.predict(arr)
-        else:  # pragma: no cover - legacy 2.x path
-            result = ocr.ocr(arr)
+        text = pytesseract.image_to_string(img, lang=self._lang)
 
         blocks: list[TextBlock] = []
-        for res in (result or []):
-            if isinstance(res, dict) or hasattr(res, "get"):  # 3.x OCRResult
-                texts = res.get("rec_texts") or []
-                scores = res.get("rec_scores") or []
-                for text, conf in zip(texts, scores):
-                    if text and text.strip():
-                        blocks.append(TextBlock(text=text.strip(), page=page, confidence=float(conf)))
-            else:  # 2.x line group
-                for item in (res or []):
-                    bbox_raw, (text, conf) = item
-                    if text and text.strip():
-                        blocks.append(TextBlock(text=text.strip(), page=page, confidence=float(conf)))
-
+        for line in text.splitlines():
+            stripped = line.strip()
+            if stripped:
+                blocks.append(TextBlock(text=stripped, page=page, confidence=1.0))
         return blocks
