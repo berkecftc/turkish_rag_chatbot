@@ -58,7 +58,15 @@ class Message(UUIDMixin, Base):
         ForeignKey("conversations.id", ondelete="CASCADE"), index=True
     )
     role: Mapped[MessageRole] = mapped_column(
-        SAEnum(MessageRole, name="message_role", native_enum=True)
+        # values_callable: serialize by enum value ("user") not name ("USER"),
+        # matching the Postgres enum's lowercase labels. Without it inserts fail
+        # with: invalid input value for enum message_role: "USER".
+        SAEnum(
+            MessageRole,
+            name="message_role",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        )
     )
     content: Mapped[str] = mapped_column(Text)
     # AI-specific fields (null for user messages)
