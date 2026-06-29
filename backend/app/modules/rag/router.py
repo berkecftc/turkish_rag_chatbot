@@ -142,6 +142,24 @@ async def get_messages(
     return [MessageOut.model_validate(m) for m in messages]
 
 
+@router.delete(
+    "/conversations/{conversation_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    principal: Principal = Depends(get_principal),
+    session: AsyncSession = Depends(get_db),
+) -> None:
+    """Permanently delete a conversation. Messages/citations cascade (FK
+    ondelete=CASCADE); retrieval logs are detached (SET NULL)."""
+    repo = ConversationRepository(session, principal.tenant_id)
+    conv = await repo.get(conversation_id)
+    if conv is None or conv.tenant_id != principal.tenant_id:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    await session.delete(conv)
+
+
 # ── Debug ─────────────────────────────────────────────────────────────────────
 
 @router.get("/debug/{message_id}", response_model=DebugResponse)

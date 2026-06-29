@@ -57,6 +57,10 @@ export async function getDebug(messageId: string): Promise<DebugResponse> {
   return data;
 }
 
+export async function deleteConversation(conversationId: string): Promise<void> {
+  await api.delete(`/rag/conversations/${conversationId}`);
+}
+
 // ── Hooks ───────────────────────────────────────────────────────────────────
 export function useConversations(params: ListParams = {}): UseQueryResult<ConversationOut[]> {
   return useQuery({
@@ -106,6 +110,16 @@ export function useCreateConversation(): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: ConversationCreate | void) => createConversation(body ?? {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
+    },
+  });
+}
+
+export function useDeleteConversation(): UseMutationResult<void, unknown, string> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (conversationId: string) => deleteConversation(conversationId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
     },

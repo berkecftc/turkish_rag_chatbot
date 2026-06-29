@@ -1,14 +1,24 @@
 import * as React from "react";
 import { Link } from "react-router-dom";
-import { MessagesSquare, Search as SearchIcon, MessageSquare, Coins, ChevronRight } from "lucide-react";
+import { toast } from "sonner";
+import {
+  MessagesSquare,
+  Search as SearchIcon,
+  MessageSquare,
+  Coins,
+  ChevronRight,
+  Trash2,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Input } from "@/components/ui/input";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/EmptyState";
 import { ErrorState } from "@/components/ErrorState";
 import { LoadingState } from "@/components/LoadingState";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useConversationsPage } from "@/features/rag/api";
+import { cn } from "@/lib/utils";
+import { useConversationsPage, useDeleteConversation } from "@/features/rag/api";
 import { useDebounce } from "@/shared/hooks/useDebounce";
 import { formatRelativeTime, formatNumber, truncate } from "@/shared/lib/format";
 import type { ConversationOut } from "@/shared/types/api";
@@ -20,7 +30,7 @@ function ConversationCard({ conv }: { conv: ConversationOut }) {
   return (
     <Link
       to={`/chat/${conv.id}`}
-      className="group block rounded-lg border border-border bg-card p-4 transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="block rounded-lg border border-border bg-card p-4 pr-12 transition-colors hover:border-primary/40 hover:bg-accent/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
@@ -59,6 +69,20 @@ export function ConversationsPage() {
   const [page, setPage] = React.useState(0);
   const [rawSearch, setRawSearch] = React.useState("");
   const search = useDebounce(rawSearch, 250).trim().toLocaleLowerCase("tr-TR");
+  const [confirm, setConfirm] = React.useState<{ id: string; title: string } | null>(null);
+  const del = useDeleteConversation();
+
+  const handleDelete = () => {
+    if (!confirm) return;
+    const { title } = confirm;
+    del.mutate(confirm.id, {
+      onSuccess: () => {
+        toast.success(`"${title}" silindi.`);
+        setConfirm(null);
+      },
+      onError: () => toast.error("Sohbet silinemedi."),
+    });
+  };
 
   const { data, isLoading, isError, isFetching, refetch } = useConversationsPage({
     limit: PAGE_SIZE,
@@ -147,8 +171,25 @@ export function ConversationsPage() {
           ) : (
             <ul className="space-y-3">
               {filtered.map((conv) => (
-                <li key={conv.id}>
+                <li key={conv.id} className="group relative">
                   <ConversationCard conv={conv} />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setConfirm({
+                        id: conv.id,
+                        title: conv.title?.trim() || "Başlıksız konuşma",
+                      })
+                    }
+                    aria-label={`"${conv.title?.trim() || "Başlıksız konuşma"}" konuşmasını sil`}
+                    className={cn(
+                      "absolute right-3 top-3 flex size-8 items-center justify-center rounded-md text-muted-foreground",
+                      "opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    )}
+                  >
+                    <Trash2 className="size-4" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -185,6 +226,21 @@ export function ConversationsPage() {
       {isFetching && !showInitialLoading && page === 0 && conversations.length === 0 && (
         <LoadingState srLabel="Konuşmalar yükleniyor" />
       )}
+
+      <ConfirmDialog
+        open={confirm != null}
+        tone="destructive"
+        title="Sohbeti sil"
+        description={
+          confirm
+            ? `"${confirm.title}" kalıcı olarak silinecek. Bu işlem geri alınamaz.`
+            : undefined
+        }
+        confirmLabel="Sil"
+        busy={del.isPending}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }

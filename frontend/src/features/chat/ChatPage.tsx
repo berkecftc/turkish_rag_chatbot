@@ -9,13 +9,16 @@ import {
   FileText,
   Search as SearchIcon,
   ListChecks,
+  Trash2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useIsMobile } from "@/shared/hooks/useMediaQuery";
 import { formatRelativeTime } from "@/shared/lib/format";
-import { useConversations } from "@/features/rag/api";
+import { useConversations, useDeleteConversation } from "@/features/rag/api";
 import { useStreamingChat } from "@/features/chat/hooks/useStreamingChat";
 import { usePreferences } from "@/stores/preferences";
 import { MessageList } from "./components/MessageList";
@@ -41,6 +44,22 @@ function ConversationRail({
 }) {
   const { data: conversations = [], isLoading } = useConversations({ limit: 100 });
   const navigate = useNavigate();
+  const del = useDeleteConversation();
+  const [confirm, setConfirm] = React.useState<{ id: string; title: string } | null>(null);
+
+  const handleDelete = () => {
+    if (!confirm) return;
+    const { id, title } = confirm;
+    del.mutate(id, {
+      onSuccess: () => {
+        toast.success(`"${title}" silindi.`);
+        setConfirm(null);
+        // If the open conversation was deleted, return to a fresh chat.
+        if (id === activeId) navigate("/chat");
+      },
+      onError: () => toast.error("Sohbet silinemedi."),
+    });
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -72,13 +91,14 @@ function ConversationRail({
           <ul className="space-y-0.5">
             {conversations.map((c: ConversationOut) => {
               const active = c.id === activeId;
+              const title = c.title || "Adsız sohbet";
               return (
-                <li key={c.id}>
+                <li key={c.id} className="group relative">
                   <Link
                     to={`/chat/${c.id}`}
                     onClick={onNavigate}
                     className={cn(
-                      "flex flex-col gap-0.5 rounded-md px-3 py-2 text-sm transition-colors",
+                      "flex flex-col gap-0.5 rounded-md py-2 pl-3 pr-9 text-sm transition-colors",
                       active
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -86,7 +106,7 @@ function ConversationRail({
                   >
                     <span className="flex items-center gap-2 truncate">
                       <MessageSquare className="size-3.5 shrink-0" aria-hidden="true" />
-                      <span className="truncate">{c.title || "Adsız sohbet"}</span>
+                      <span className="truncate">{title}</span>
                     </span>
                     {c.last_message_at && (
                       <span className="pl-5.5 truncate text-[11px] text-muted-foreground/80">
@@ -94,12 +114,39 @@ function ConversationRail({
                       </span>
                     )}
                   </Link>
+                  <button
+                    type="button"
+                    onClick={() => setConfirm({ id: c.id, title })}
+                    aria-label={`"${title}" sohbetini sil`}
+                    className={cn(
+                      "absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground",
+                      "opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                    )}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
                 </li>
               );
             })}
           </ul>
         )}
       </ScrollArea>
+
+      <ConfirmDialog
+        open={confirm != null}
+        tone="destructive"
+        title="Sohbeti sil"
+        description={
+          confirm
+            ? `"${confirm.title}" kalıcı olarak silinecek. Bu işlem geri alınamaz.`
+            : undefined
+        }
+        confirmLabel="Sil"
+        busy={del.isPending}
+        onConfirm={handleDelete}
+        onCancel={() => setConfirm(null)}
+      />
     </div>
   );
 }
