@@ -194,9 +194,14 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
     }, RECONCILE_TIMEOUT_MS);
     return () => window.clearTimeout(t);
   }, [serverMessages, store.doneMeta, store.isStreaming]);
-  const streamingForThisConv = store.conversationId === conversationId && conversationId != null;
-  // Also surface streaming for a brand-new conversation that was just created
-  // (URL updated to /chat/:id but the param may not have refreshed yet).
+  // The ephemeral stream belongs to exactly one conversation (store.conversationId).
+  // Show its optimistic rows ONLY on that conversation's page — or on the brand-new
+  // /chat page (no id yet) while that conversation is being created. The previous
+  // `|| store.conversationId != null` fallback leaked the live message into every
+  // open conversation (it appeared in the wrong chat, then vanished on reconcile).
+  const streamBelongsHere =
+    store.conversationId === conversationId ||
+    (conversationId == null && store.isStreaming);
   const streamingActive =
     store.isStreaming || store.draft.length > 0 || store.pendingUser != null;
 
@@ -208,7 +213,7 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
       message: m,
     }));
 
-    const showStream = streamingActive && (streamingForThisConv || store.conversationId != null);
+    const showStream = streamingActive && streamBelongsHere;
     if (!showStream) return rows;
 
     // Avoid duplicating a user message that the server has already persisted.
@@ -248,8 +253,7 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
   }, [
     serverMessages,
     streamingActive,
-    streamingForThisConv,
-    store.conversationId,
+    streamBelongsHere,
     store.pendingUser,
     store.isStreaming,
     store.draft,
