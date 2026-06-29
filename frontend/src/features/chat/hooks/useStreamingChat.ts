@@ -206,7 +206,17 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
     store.isStreaming || store.draft.length > 0 || store.pendingUser != null;
 
   const messages = React.useMemo<ChatRow[]>(() => {
-    const rows: ChatRow[] = serverMessages.map((m) => ({
+    // The user and assistant message of one turn share an identical created_at
+    // (Postgres now() is constant within a transaction), so created_at alone is
+    // an ambiguous sort key and the answer could render above its question.
+    // Tie-break by role so the user message always precedes the assistant's.
+    const roleRank = (r: MessageOut["role"]) => (r === "user" ? 0 : r === "assistant" ? 1 : 2);
+    const ordered = [...serverMessages].sort((a, b) => {
+      const ta = new Date(a.created_at).getTime();
+      const tb = new Date(b.created_at).getTime();
+      return ta !== tb ? ta - tb : roleRank(a.role) - roleRank(b.role);
+    });
+    const rows: ChatRow[] = ordered.map((m) => ({
       key: m.id,
       role: m.role === "assistant" ? "assistant" : "user",
       content: m.content,
