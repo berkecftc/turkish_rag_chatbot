@@ -267,7 +267,13 @@ export function ChatPage() {
         {/* Composer */}
         <div className="border-t border-border bg-background/80 px-4 py-3 backdrop-blur">
           <div className="mx-auto w-full max-w-3xl">
-            <Composer onSend={(t) => send(t)} onStop={stop} isStreaming={isStreaming} />
+            <Composer
+              onSend={(t, ids) =>
+                send(t, ids.length ? { filters: { document_ids: ids } } : undefined)
+              }
+              onStop={stop}
+              isStreaming={isStreaming}
+            />
             <p className="mt-2 text-center text-[11px] text-muted-foreground">
               Yanıtlar yüklediğiniz belgelere dayanır; yine de önemli bilgileri doğrulayın.
             </p>
