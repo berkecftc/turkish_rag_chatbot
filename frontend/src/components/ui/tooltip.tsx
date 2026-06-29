@@ -11,7 +11,10 @@ export interface TooltipProps {
   side?: Side;
   /** Delay in ms before showing on hover. */
   delay?: number;
+  /** Class for the tooltip bubble. */
   className?: string;
+  /** Class for the wrapper element (e.g. to make it block-level / full-width). */
+  containerClassName?: string;
 }
 
 const sideClasses: Record<Side, string> = {
@@ -29,7 +32,14 @@ const sideClasses: Record<Side, string> = {
  * NOTE: positioned with simple CSS (no collision detection). A Radix-based
  * tooltip with flipping/collision handling can replace this in a later phase.
  */
-function Tooltip({ content, children, side = "top", delay = 150, className }: TooltipProps) {
+function Tooltip({
+  content,
+  children,
+  side = "top",
+  delay = 150,
+  className,
+  containerClassName,
+}: TooltipProps) {
   const [open, setOpen] = React.useState(false);
   const id = React.useId();
   const timer = React.useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -77,7 +87,7 @@ function Tooltip({ content, children, side = "top", delay = 150, className }: To
   });
 
   return (
-    <span className="relative inline-flex">
+    <span className={cn("relative inline-flex", containerClassName)}>
       {trigger}
       <span
         role="tooltip"

@@ -48,7 +48,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
             className={({ isActive }) =>
               cn(
                 "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
-                collapsed && "justify-center px-0",
+                collapsed && "w-full justify-center px-0",
                 isActive
                   ? "bg-accent text-accent-foreground"
                   : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -60,7 +60,7 @@ function SidebarNav({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?
           </NavLink>
         );
         return collapsed ? (
-          <Tooltip key={to} content={label} side="right">
+          <Tooltip key={to} content={label} side="right" containerClassName="block w-full">
             {link}
           </Tooltip>
         ) : (
