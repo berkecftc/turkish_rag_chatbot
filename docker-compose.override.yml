@@ -29,6 +29,9 @@ services:
       - ./backend:/app
     command: ["watchmedo", "auto-restart", "--directory=./app", "--pattern=*.py", "--recursive", "--", "celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=DEBUG", "--concurrency=2", "-Q", "ingestion,default"]
 
+  ollama:
+    ports: ["11434:11434"]
+
   frontend:
     build:
       target: build

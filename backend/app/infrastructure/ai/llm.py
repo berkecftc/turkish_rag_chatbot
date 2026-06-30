@@ -1,14 +1,19 @@
-"""Gemini LLM adapter — implements the LLM domain port.
+"""LLM adapters — implements the LLM domain port.
 
-Uses google-generativeai SDK. Supports:
-- Sync generation for internal use (validation, compression, rewriting)
-- Async streaming for user-facing responses
-- Configurable temperature and token budget
+Supports Gemini (google-generativeai) and Ollama (local, via httpx).
+Both expose the same interface:
+  async generate(system, messages, **opts) -> str
+  async stream(system, messages, **opts) -> AsyncIterator[str]
+
+Use get_llm() factory to get the configured provider.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 from typing import AsyncIterator
+
+import httpx
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -87,3 +92,62 @@ class GeminiLLM:
             if item is None:
                 break
             yield item
+
+
+class OllamaLLM:
+    """Implements domain LLM port using a local Ollama instance."""
+
+    def __init__(self, temperature: float | None = None, max_tokens: int | None = None) -> None:
+        cfg = get_settings()
+        self._base_url = cfg.ollama_base_url
+        self._model = cfg.ollama_model
+        self._temperature = temperature if temperature is not None else cfg.rag_generation_temperature
+        self._max_tokens = max_tokens or cfg.rag_generation_max_tokens
+
+    def _build_messages(self, system: str, messages: list[dict]) -> list[dict]:
+        result = []
+        if system:
+            result.append({"role": "system", "content": system})
+        for msg in messages:
+            result.append({"role": msg["role"], "content": msg["content"]})
+        return result
+
+    async def generate(self, system: str, messages: list[dict], **opts) -> str:
+        payload = {
+            "model": self._model,
+            "messages": self._build_messages(system, messages),
+            "stream": False,
+            "options": {"temperature": self._temperature, "num_predict": self._max_tokens},
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            resp = await client.post(f"{self._base_url}/api/chat", json=payload)
+            resp.raise_for_status()
+            return resp.json()["message"]["content"]
+
+    async def stream(self, system: str, messages: list[dict], **opts) -> AsyncIterator[str]:
+        payload = {
+            "model": self._model,
+            "messages": self._build_messages(system, messages),
+            "stream": True,
+            "options": {"temperature": self._temperature, "num_predict": self._max_tokens},
+        }
+        async with httpx.AsyncClient(timeout=120) as client:
+            async with client.stream("POST", f"{self._base_url}/api/chat", json=payload) as resp:
+                resp.raise_for_status()
+                async for line in resp.aiter_lines():
+                    if not line:
+                        continue
+                    data = json.loads(line)
+                    content = data.get("message", {}).get("content", "")
+                    if content:
+                        yield content
+                    if data.get("done"):
+                        break
+
+
+def get_llm(temperature: float | None = None, max_tokens: int | None = None) -> GeminiLLM | OllamaLLM:
+    """Return the configured LLM adapter."""
+    cfg = get_settings()
+    if cfg.llm_provider == "ollama":
+        return OllamaLLM(temperature=temperature, max_tokens=max_tokens)
+    return GeminiLLM(temperature=temperature, max_tokens=max_tokens)

@@ -44,8 +44,11 @@ class Settings(BaseSettings):
     jwt_refresh_ttl_seconds: int = 1_209_600
 
     # ── AI / RAG ─────────────────────────────────────────────────────────
+    llm_provider: Literal["gemini", "ollama"] = "ollama"
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.5-flash"
+    ollama_base_url: str = "http://ollama:11434"
+    ollama_model: str = "qwen2.5:14b-instruct"
     embedding_model: str = "BAAI/bge-m3"
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     ocr_engine: Literal["paddle", "tesseract"] = "paddle"

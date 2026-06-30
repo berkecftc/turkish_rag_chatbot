@@ -13,7 +13,10 @@ x-backend-env: &backend-env
   STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER:-minio}
   STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD:-minio123}
   STORAGE_BUCKET: ${STORAGE_BUCKET:-documents}
-  GEMINI_API_KEY: ${GEMINI_API_KEY}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+  OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://ollama:11434}
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:14b-instruct}
   JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
   JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
 
@@ -109,6 +112,19 @@ services:
     command: ["celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=INFO", "--concurrency=2", "-Q", "ingestion,default"]
     restart: unless-stopped
 
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollamadata:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: unless-stopped
+
   frontend:
     build:
       context: ./frontend
@@ -122,3 +138,4 @@ volumes:
   redisdata:
   rabbitmqdata:
   miniodata:
+  ollamadata:

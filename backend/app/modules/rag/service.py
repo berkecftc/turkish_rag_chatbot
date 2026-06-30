@@ -32,7 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.infrastructure.ai.embedder import BgeM3Embedder
-from app.infrastructure.ai.llm import GeminiLLM
+from app.infrastructure.ai.llm import get_llm
 from app.infrastructure.rag.cache.semantic_cache import SemanticCacheLayer
 from app.infrastructure.rag.citation.assembler import CitationAssembler
 from app.infrastructure.rag.confidence.scorer import ConfidenceScorer
@@ -96,23 +96,23 @@ class RagService:
 
         # AI adapters
         self._embedder = BgeM3Embedder()
-        self._llm = GeminiLLM()
+        self._llm = get_llm()
 
         # Pipeline stages
         self._security = PromptSecurityGuard()
         self._processor = TurkishQueryProcessor()
-        self._rewriter = QueryRewriter(GeminiLLM(temperature=0.0))
+        self._rewriter = QueryRewriter(get_llm(temperature=0.0))
         self._retriever = HybridRetriever(
             VectorSearchEngine(session),
             BM25SearchEngine(session),
         )
         self._reranker = BgeRerankerEngine()
         self._packer = ContextPacker()
-        self._compressor = ContextCompressor(GeminiLLM(temperature=0.0, max_tokens=4096))
+        self._compressor = ContextCompressor(get_llm(temperature=0.0, max_tokens=4096))
         self._citation_assembler = CitationAssembler()
         self._orchestrator = GeminiOrchestrator(self._llm)
         self._validator = HallucinationValidator(self._embedder)
-        self._memory = ConversationMemoryStore(redis_client, GeminiLLM(temperature=0.0))
+        self._memory = ConversationMemoryStore(redis_client, get_llm(temperature=0.0))
         self._cache = SemanticCacheLayer(session)
         self._confidence_scorer = ConfidenceScorer()
         self._source_scorer = SourceReliabilityScorer()
