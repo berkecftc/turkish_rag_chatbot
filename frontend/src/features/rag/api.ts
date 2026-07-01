@@ -20,6 +20,7 @@ import type {
   ChatResponse,
   ConversationCreate,
   ConversationOut,
+  ConversationUpdate,
   DebugResponse,
   MessageOut,
 } from "@/shared/types/api";
@@ -54,6 +55,17 @@ export async function listMessages(
 
 export async function getDebug(messageId: string): Promise<DebugResponse> {
   const { data } = await api.get<DebugResponse>(`/rag/debug/${messageId}`);
+  return data;
+}
+
+export async function updateConversation(
+  conversationId: string,
+  body: ConversationUpdate,
+): Promise<ConversationOut> {
+  const { data } = await api.patch<ConversationOut>(
+    `/rag/conversations/${conversationId}`,
+    body,
+  );
   return data;
 }
 
@@ -110,6 +122,21 @@ export function useCreateConversation(): UseMutationResult<
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (body: ConversationCreate | void) => createConversation(body ?? {}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
+    },
+  });
+}
+
+export function useUpdateConversation(): UseMutationResult<
+  ConversationOut,
+  unknown,
+  { id: string; title: string }
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      updateConversation(id, { title }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
     },

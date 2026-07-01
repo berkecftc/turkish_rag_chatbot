@@ -6,6 +6,7 @@ Endpoints:
   POST /rag/search                     — retrieval-only (no generation)
   POST /rag/conversations              — create conversation
   GET  /rag/conversations              — list conversations
+  PATCH /rag/conversations/{id}        — rename conversation
   GET  /rag/conversations/{id}/messages— message history with citations
   GET  /rag/debug/{message_id}         — retrieval debug inspection
 """
@@ -28,6 +29,7 @@ from app.modules.rag.schemas import (
     ChatResponse,
     ConversationCreate,
     ConversationOut,
+    ConversationUpdate,
     DebugResponse,
     MessageOut,
     SearchRequest,
@@ -140,6 +142,28 @@ async def get_messages(
     repo = MessageRepository(session, principal.tenant_id)
     messages = await repo.recent_in_conversation(conversation_id, limit=limit)
     return [MessageOut.model_validate(m) for m in messages]
+
+
+@router.patch(
+    "/conversations/{conversation_id}",
+    response_model=ConversationOut,
+)
+async def rename_conversation(
+    conversation_id: uuid.UUID,
+    body: ConversationUpdate,
+    principal: Principal = Depends(get_principal),
+    session: AsyncSession = Depends(get_db),
+) -> ConversationOut:
+    repo = ConversationRepository(session, principal.tenant_id)
+    conv = await repo.get(conversation_id)
+    if conv is None or conv.tenant_id != principal.tenant_id:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
+    conv.title = body.title.strip()
+    await session.flush()
+    # onupdate refreshes updated_at server-side; reload eagerly so Pydantic
+    # doesn't trigger a lazy load outside the async greenlet (MissingGreenlet).
+    await session.refresh(conv)
+    return ConversationOut.model_validate(conv)
 
 
 @router.delete(

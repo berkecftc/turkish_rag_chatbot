@@ -159,6 +159,10 @@ export interface ConversationCreate {
   title?: string;
 }
 
+export interface ConversationUpdate {
+  title: string;
+}
+
 export interface ConversationOut {
   id: string;
   title?: string;

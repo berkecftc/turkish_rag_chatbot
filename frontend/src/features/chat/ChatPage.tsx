@@ -10,6 +10,7 @@ import {
   Search as SearchIcon,
   ListChecks,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -18,7 +19,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { useIsMobile } from "@/shared/hooks/useMediaQuery";
 import { formatRelativeTime } from "@/shared/lib/format";
-import { useConversations, useDeleteConversation } from "@/features/rag/api";
+import {
+  useConversations,
+  useDeleteConversation,
+  useUpdateConversation,
+} from "@/features/rag/api";
 import { useStreamingChat } from "@/features/chat/hooks/useStreamingChat";
 import { usePreferences } from "@/stores/preferences";
 import { MessageList } from "./components/MessageList";
@@ -45,7 +50,14 @@ function ConversationRail({
   const { data: conversations = [], isLoading } = useConversations({ limit: 100 });
   const navigate = useNavigate();
   const del = useDeleteConversation();
+  const rename = useUpdateConversation();
   const [confirm, setConfirm] = React.useState<{ id: string; title: string } | null>(null);
+  const [editing, setEditing] = React.useState<{ id: string; value: string } | null>(null);
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (editing) inputRef.current?.select();
+  }, [editing?.id]);
 
   const handleDelete = () => {
     if (!confirm) return;
@@ -59,6 +71,25 @@ function ConversationRail({
       },
       onError: () => toast.error("Sohbet silinemedi."),
     });
+  };
+
+  const commitRename = () => {
+    if (!editing) return;
+    const { id, value } = editing;
+    const next = value.trim();
+    const current = conversations.find((c) => c.id === id);
+    // No-op on empty or unchanged input — just close the editor.
+    if (!next || next === (current?.title ?? "")) {
+      setEditing(null);
+      return;
+    }
+    rename.mutate(
+      { id, title: next },
+      {
+        onSuccess: () => setEditing(null),
+        onError: () => toast.error("Sohbet adı değiştirilemedi."),
+      },
+    );
   };
 
   return (
@@ -92,13 +123,45 @@ function ConversationRail({
             {conversations.map((c: ConversationOut) => {
               const active = c.id === activeId;
               const title = c.title || "Adsız sohbet";
+              const isEditing = editing?.id === c.id;
+
+              if (isEditing) {
+                return (
+                  <li key={c.id} className="relative">
+                    <input
+                      ref={inputRef}
+                      value={editing.value}
+                      onChange={(e) =>
+                        setEditing({ id: c.id, value: e.target.value })
+                      }
+                      onBlur={commitRename}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          commitRename();
+                        } else if (e.key === "Escape") {
+                          e.preventDefault();
+                          setEditing(null);
+                        }
+                      }}
+                      maxLength={512}
+                      disabled={rename.isPending}
+                      className={cn(
+                        "w-full rounded-md border border-input bg-background py-2 pl-3 pr-3 text-sm",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      )}
+                    />
+                  </li>
+                );
+              }
+
               return (
                 <li key={c.id} className="group relative">
                   <Link
                     to={`/chat/${c.id}`}
                     onClick={onNavigate}
                     className={cn(
-                      "flex flex-col gap-0.5 rounded-md py-2 pl-3 pr-9 text-sm transition-colors",
+                      "flex flex-col gap-0.5 rounded-md py-2 pl-3 pr-16 text-sm transition-colors",
                       active
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -114,18 +177,34 @@ function ConversationRail({
                       </span>
                     )}
                   </Link>
-                  <button
-                    type="button"
-                    onClick={() => setConfirm({ id: c.id, title })}
-                    aria-label={`"${title}" sohbetini sil`}
-                    className={cn(
-                      "absolute right-1.5 top-1.5 flex size-7 items-center justify-center rounded-md text-muted-foreground",
-                      "opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    )}
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <div className="absolute right-1.5 top-1.5 flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setEditing({ id: c.id, value: c.title ?? "" })
+                      }
+                      aria-label={`"${title}" sohbetini yeniden adlandır`}
+                      className={cn(
+                        "flex size-7 items-center justify-center rounded-md text-muted-foreground",
+                        "opacity-0 transition hover:bg-accent hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      )}
+                    >
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirm({ id: c.id, title })}
+                      aria-label={`"${title}" sohbetini sil`}
+                      className={cn(
+                        "flex size-7 items-center justify-center rounded-md text-muted-foreground",
+                        "opacity-0 transition hover:bg-destructive/10 hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      )}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
                 </li>
               );
             })}
