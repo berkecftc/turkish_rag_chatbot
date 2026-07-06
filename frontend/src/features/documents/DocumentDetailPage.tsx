@@ -18,6 +18,7 @@ import {
   labelFor,
 } from "@/i18n/labels";
 import { formatBytes, formatDateTime } from "@/shared/lib/format";
+import { usePermissions } from "@/shared/lib/jwt";
 import { normalizeError } from "@/shared/lib/normalizeError";
 import type { DocumentOut } from "@/shared/types/api";
 
@@ -47,6 +48,8 @@ export function DocumentDetailPage() {
   const navigate = useNavigate();
   const query = useDocument(id);
   const del = useDeleteDocument();
+  const { has } = usePermissions();
+  const canDelete = has("document:delete");
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
   const backLink = (
@@ -119,15 +122,17 @@ export function DocumentDetailPage() {
         title={doc.title}
         description="Belge meta verileri ve parçaları."
         actions={
-          <Button
-            variant="outline"
-            size="sm"
-            className="text-destructive hover:bg-destructive/10"
-            onClick={() => setConfirmOpen(true)}
-          >
-            <Trash2 aria-hidden="true" />
-            Sil
-          </Button>
+          canDelete ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 aria-hidden="true" />
+              Sil
+            </Button>
+          ) : undefined
         }
       />
 

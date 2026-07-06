@@ -88,7 +88,9 @@ async def search(
     principal: Principal = Depends(get_principal),
     svc: RagService = Depends(_svc),
 ) -> SearchResponse:
-    return await svc.search(body, tenant_id=principal.tenant_id)
+    return await svc.search(
+        body, tenant_id=principal.tenant_id, user_id=principal.user_id
+    )
 
 
 # ── Conversations ─────────────────────────────────────────────────────────────

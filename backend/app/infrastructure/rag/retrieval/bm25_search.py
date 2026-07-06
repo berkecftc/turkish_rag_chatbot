@@ -57,6 +57,7 @@ FROM chunks c
 JOIN documents d ON d.id = c.document_id,
 plainto_tsquery(:lang_config, :query_text) AS query
 WHERE c.tenant_id   = :tenant_id
+  AND d.owner_id    = :owner_id
   AND d.status      = 'ready'
   AND d.deleted_at  IS NULL
   AND c.content_tsv IS NOT NULL
@@ -84,6 +85,7 @@ SELECT
 FROM chunks c
 JOIN documents d ON d.id = c.document_id
 WHERE c.tenant_id  = :tenant_id
+  AND d.owner_id   = :owner_id
   AND d.status     = 'ready'
   AND d.deleted_at IS NULL
   AND to_tsvector('simple', c.content) @@ plainto_tsquery('simple', :query_text)
@@ -102,6 +104,7 @@ class BM25SearchEngine:
         self,
         *,
         tenant_id: uuid.UUID,
+        owner_id: uuid.UUID,
         query_text: str,
         top_k: int,
         is_turkish: bool = True,
@@ -111,6 +114,7 @@ class BM25SearchEngine:
         extra_clauses: list[str] = []
         params: dict = {
             "tenant_id": str(tenant_id),
+            "owner_id": str(owner_id),
             "query_text": query_text,
             "top_k": top_k,
             "lang_config": self._lang_config if is_turkish else "english",

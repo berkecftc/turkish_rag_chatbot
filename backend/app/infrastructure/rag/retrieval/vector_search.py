@@ -53,6 +53,7 @@ SELECT
 FROM chunks c
 JOIN documents d ON d.id = c.document_id
 WHERE c.tenant_id   = :tenant_id
+  AND d.owner_id    = :owner_id
   AND d.status      = 'ready'
   AND d.deleted_at  IS NULL
   AND c.embedding   IS NOT NULL
@@ -70,6 +71,7 @@ class VectorSearchEngine:
         self,
         *,
         tenant_id: uuid.UUID,
+        owner_id: uuid.UUID,
         query_embedding: list[float],
         top_k: int,
         document_ids: list[uuid.UUID] | None = None,
@@ -78,6 +80,7 @@ class VectorSearchEngine:
         extra_clauses: list[str] = []
         params: dict = {
             "tenant_id": str(tenant_id),
+            "owner_id": str(owner_id),
             "embedding": json.dumps(query_embedding),
             "top_k": top_k,
         }

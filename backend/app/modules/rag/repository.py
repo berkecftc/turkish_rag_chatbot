@@ -100,7 +100,11 @@ class SemanticCacheRepository(TenantScopedRepository[SemanticCache]):
     model = SemanticCache
 
     async def find_similar(
-        self, tenant_id: uuid.UUID, query_embedding: list[float], threshold: float
+        self,
+        tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
+        query_embedding: list[float],
+        threshold: float,
     ) -> SemanticCache | None:
         from sqlalchemy import text
 
@@ -108,6 +112,7 @@ class SemanticCacheRepository(TenantScopedRepository[SemanticCache]):
             """
             SELECT id FROM semantic_cache
             WHERE tenant_id = :tid
+              AND user_id = :uid
               AND expires_at > now()
               AND 1 - (query_embedding <=> CAST(:emb AS vector)) >= :thresh
             ORDER BY query_embedding <=> CAST(:emb AS vector)
@@ -118,7 +123,12 @@ class SemanticCacheRepository(TenantScopedRepository[SemanticCache]):
 
         result = await self.session.execute(
             stmt,
-            {"tid": str(tenant_id), "emb": json.dumps(query_embedding), "thresh": threshold},
+            {
+                "tid": str(tenant_id),
+                "uid": str(user_id),
+                "emb": json.dumps(query_embedding),
+                "thresh": threshold,
+            },
         )
         row = result.fetchone()
         if row is None:

@@ -60,6 +60,7 @@ class HybridRetriever:
         self,
         *,
         tenant_id: uuid.UUID,
+        owner_id: uuid.UUID,
         query_text: str,
         query_embedding: list[float],
         intent: QueryIntent,
@@ -77,6 +78,7 @@ class HybridRetriever:
         # Primary retrieval
         vector_task = self._vector.search(
             tenant_id=tenant_id,
+            owner_id=owner_id,
             query_embedding=query_embedding,
             top_k=self._top_k,
             document_ids=doc_ids,
@@ -84,6 +86,7 @@ class HybridRetriever:
         )
         bm25_task = self._bm25.search(
             tenant_id=tenant_id,
+            owner_id=owner_id,
             query_text=query_text,
             top_k=self._top_k,
             is_turkish=is_turkish,
@@ -99,6 +102,7 @@ class HybridRetriever:
                 tasks.append(
                     self._vector.search(
                         tenant_id=tenant_id,
+                        owner_id=owner_id,
                         query_embedding=sub_emb,
                         top_k=self._top_k // 2,
                         document_ids=doc_ids,
@@ -108,6 +112,7 @@ class HybridRetriever:
                 tasks.append(
                     self._bm25.search(
                         tenant_id=tenant_id,
+                        owner_id=owner_id,
                         query_text=sub_q,
                         top_k=self._top_k // 2,
                         is_turkish=is_turkish,

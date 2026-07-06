@@ -80,7 +80,14 @@ export const router = createBrowserRouter([
           { path: "chat/:conversationId", element: lazyPage(<ChatPage />) },
           { path: "documents", element: lazyPage(<DocumentsPage />) },
           { path: "documents/:id", element: lazyPage(<DocumentDetailPage />) },
-          { path: "upload", element: lazyPage(<UploadPage />) },
+          {
+            path: "upload",
+            element: (
+              <RequirePermission perm="document:write">
+                {lazyPage(<UploadPage />)}
+              </RequirePermission>
+            ),
+          },
           { path: "search", element: lazyPage(<SearchPage />) },
           { path: "retrieval/:messageId", element: lazyPage(<RetrievalPage />) },
           { path: "analytics", element: lazyPage(<AnalyticsPage />) },
@@ -88,7 +95,7 @@ export const router = createBrowserRouter([
           {
             path: "admin",
             element: (
-              <RequirePermission perm="admin:read">
+              <RequirePermission perm="admin:manage_users">
                 {lazyPage(<AdminPage />)}
               </RequirePermission>
             ),

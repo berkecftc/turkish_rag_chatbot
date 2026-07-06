@@ -28,6 +28,33 @@ class DocumentRepository(TenantScopedRepository[Document]):
         )
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def list_by_owner(
+        self, owner_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+    ) -> list[Document]:
+        stmt = (
+            select(Document)
+            .where(
+                Document.tenant_id == self.tenant_id,
+                Document.owner_id == owner_id,
+                Document.deleted_at.is_(None),
+            )
+            .order_by(Document.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
+
+    async def get_active_for_owner(
+        self, document_id: uuid.UUID, owner_id: uuid.UUID
+    ) -> Document | None:
+        stmt = select(Document).where(
+            Document.id == document_id,
+            Document.tenant_id == self.tenant_id,
+            Document.owner_id == owner_id,
+            Document.deleted_at.is_(None),
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
 
 class DocumentVersionRepository(BaseRepository[DocumentVersion]):
     model = DocumentVersion

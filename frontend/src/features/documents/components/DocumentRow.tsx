@@ -12,7 +12,8 @@ import type { DocumentOut } from "@/shared/types/api";
 
 export interface DocumentRowProps {
   doc: DocumentOut;
-  onDelete: (doc: DocumentOut) => void;
+  /** When omitted, the delete action is hidden (no `document:delete` permission). */
+  onDelete?: (doc: DocumentOut) => void;
 }
 
 /** A single `<tr>` in the desktop document table. */
@@ -51,18 +52,20 @@ export function DocumentRow({ doc, onDelete }: DocumentRowProps) {
       <td className="px-4 py-3 text-sm uppercase text-muted-foreground">{doc.language}</td>
       <td className="px-4 py-3 text-sm text-muted-foreground">{formatDate(doc.created_at)}</td>
       <td className="px-4 py-3 text-right">
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 text-muted-foreground hover:text-destructive"
-          aria-label={`"${doc.title}" belgesini sil`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(doc);
-          }}
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
+        {onDelete && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 text-muted-foreground hover:text-destructive"
+            aria-label={`"${doc.title}" belgesini sil`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(doc);
+            }}
+          >
+            <Trash2 aria-hidden="true" />
+          </Button>
+        )}
       </td>
     </tr>
   );

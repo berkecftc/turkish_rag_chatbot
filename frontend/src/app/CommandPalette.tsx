@@ -16,11 +16,13 @@ interface QuickAction {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   to: string;
+  /** Permission required to show this action. */
+  perm?: string;
 }
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: "new-chat", label: "Yeni sohbet", icon: Plus, to: "/chat" },
-  { id: "upload", label: "Belge yükle", icon: UploadIcon, to: "/upload" },
+  { id: "upload", label: "Belge yükle", icon: UploadIcon, to: "/upload", perm: "document:write" },
   { id: "search", label: "Arama yap", icon: SearchIcon, to: "/search" },
 ];
 
@@ -34,6 +36,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const { has } = usePermissions();
 
   const navItems = NAV_ITEMS.filter((item) => !item.perm || has(item.perm));
+  const quickActions = QUICK_ACTIONS.filter((item) => !item.perm || has(item.perm));
 
   const run = React.useCallback(
     (to: string) => {
@@ -73,7 +76,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
               heading="Hızlı işlemler"
               className="px-1 py-1 text-xs font-medium text-muted-foreground [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5"
             >
-              {QUICK_ACTIONS.map(({ id, label, icon: Icon, to }) => (
+              {quickActions.map(({ id, label, icon: Icon, to }) => (
                 <Command.Item
                   key={id}
                   value={`islem ${label}`}

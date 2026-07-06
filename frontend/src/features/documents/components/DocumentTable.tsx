@@ -11,7 +11,8 @@ export interface DocumentTableProps {
   sortKey: SortKey;
   sortDir: SortDir;
   onSort: (key: SortKey) => void;
-  onDelete: (doc: DocumentOut) => void;
+  /** When omitted, delete actions are hidden (no `document:delete` permission). */
+  onDelete?: (doc: DocumentOut) => void;
 }
 
 interface Column {

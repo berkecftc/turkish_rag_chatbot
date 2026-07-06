@@ -167,6 +167,7 @@ class RagService:
         # 5. Cache lookup
         cached = await self._cache.lookup(
             tenant_id=tenant_id,
+            user_id=user_id,
             query=rewrite.rewritten,
             query_embedding=query_emb.dense,
         )
@@ -179,6 +180,7 @@ class RagService:
         async with self._tracker.measure("retrieval"):
             fused, vw, bw = await self._retriever.retrieve(
                 tenant_id=tenant_id,
+                owner_id=user_id,
                 query_text=rewrite.rewritten,
                 query_embedding=query_emb.dense,
                 intent=processed.intent,
@@ -292,6 +294,7 @@ class RagService:
         # 18. Cache the response
         await self._cache.store(
             tenant_id=tenant_id,
+            user_id=user_id,
             query=rewrite.rewritten,
             query_embedding=query_emb.dense,
             response=response.model_dump(mode="json"),
@@ -324,7 +327,10 @@ class RagService:
 
         # Cache check
         cached = await self._cache.lookup(
-            tenant_id=tenant_id, query=rewrite.rewritten, query_embedding=query_emb.dense
+            tenant_id=tenant_id,
+            user_id=user_id,
+            query=rewrite.rewritten,
+            query_embedding=query_emb.dense,
         )
         if cached:
             yield {"type": "delta", "content": cached.get("content", "")}
@@ -334,6 +340,7 @@ class RagService:
         async with self._tracker.measure("retrieval"):
             fused, vw, bw = await self._retriever.retrieve(
                 tenant_id=tenant_id,
+                owner_id=user_id,
                 query_text=rewrite.rewritten,
                 query_embedding=query_emb.dense,
                 intent=processed.intent,
@@ -420,6 +427,7 @@ class RagService:
         self,
         request: SearchRequest,
         tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
     ) -> SearchResponse:
         """Retrieval-only (no generation) for search use case."""
         import time
@@ -432,6 +440,7 @@ class RagService:
 
         fused, _, _ = await self._retriever.retrieve(
             tenant_id=tenant_id,
+            owner_id=user_id,
             query_text=rewrite.rewritten,
             query_embedding=query_emb.dense,
             intent=processed.intent,

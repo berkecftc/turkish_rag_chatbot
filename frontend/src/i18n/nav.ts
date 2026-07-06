@@ -27,10 +27,10 @@ export const NAV_ITEMS: NavItem[] = [
   { to: "/chat", label: "Sohbet", icon: MessageSquare },
   { to: "/conversations", label: "Konuşmalar", icon: MessagesSquare },
   { to: "/documents", label: "Belgeler", icon: FileText },
-  { to: "/upload", label: "Yükleme", icon: Upload },
+  { to: "/upload", label: "Yükleme", icon: Upload, perm: "document:write" },
   { to: "/search", label: "Arama", icon: Search },
   { to: "/analytics", label: "Analitik", icon: BarChart3 },
-  { to: "/admin", label: "Yönetim", icon: Shield, perm: "admin:read" },
+  { to: "/admin", label: "Yönetim", icon: Shield, perm: "admin:manage_users" },
   { to: "/settings", label: "Ayarlar", icon: Settings },
 ];
 

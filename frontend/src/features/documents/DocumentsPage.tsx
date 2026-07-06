@@ -20,6 +20,7 @@ import {
   type StatusFilter,
 } from "@/features/documents/components/DocumentFilters";
 import { useIsMobile } from "@/shared/hooks/useMediaQuery";
+import { usePermissions } from "@/shared/lib/jwt";
 import { normalizeError } from "@/shared/lib/normalizeError";
 import type { DocumentOut } from "@/shared/types/api";
 
@@ -37,6 +38,9 @@ function sortDocs(docs: DocumentOut[], key: SortKey, dir: SortDir): DocumentOut[
 
 export function DocumentsPage() {
   const isMobile = useIsMobile();
+  const { has } = usePermissions();
+  const canWrite = has("document:write");
+  const canDelete = has("document:delete");
   const [page, setPage] = React.useState(0);
   const [search, setSearch] = React.useState("");
   const [status, setStatus] = React.useState<StatusFilter>("all");
@@ -95,10 +99,12 @@ export function DocumentsPage() {
       title="Belgeler"
       description="Yüklediğiniz belgeleri arayın, filtreleyin ve yönetin."
       actions={
-        <Link to="/upload" className={buttonVariants({ size: "sm" })}>
-          <FilePlus2 aria-hidden="true" />
-          Yükle
-        </Link>
+        canWrite ? (
+          <Link to="/upload" className={buttonVariants({ size: "sm" })}>
+            <FilePlus2 aria-hidden="true" />
+            Yükle
+          </Link>
+        ) : undefined
       }
     />
   );
@@ -138,12 +144,18 @@ export function DocumentsPage() {
         <EmptyState
           icon={<FolderOpen aria-hidden="true" />}
           title="Henüz belge yok"
-          description="İlk belgenizi yükleyerek başlayın. Yükleme sonrası işleme adımlarını canlı izleyebilirsiniz."
+          description={
+            canWrite
+              ? "İlk belgenizi yükleyerek başlayın. Yükleme sonrası işleme adımlarını canlı izleyebilirsiniz."
+              : "Bu hesabın belge yükleme izni yok. Belgeler burada listelenecek."
+          }
           action={
-            <Link to="/upload" className={buttonVariants({ size: "sm" })}>
-              <FilePlus2 aria-hidden="true" />
-              Belge yükle
-            </Link>
+            canWrite ? (
+              <Link to="/upload" className={buttonVariants({ size: "sm" })}>
+                <FilePlus2 aria-hidden="true" />
+                Belge yükle
+              </Link>
+            ) : undefined
           }
         />
       ) : (
@@ -163,7 +175,11 @@ export function DocumentsPage() {
           ) : isMobile ? (
             <div className="space-y-3">
               {visible.map((doc) => (
-                <DocumentCard key={doc.id} doc={doc} onDelete={setPendingDelete} />
+                <DocumentCard
+                  key={doc.id}
+                  doc={doc}
+                  onDelete={canDelete ? setPendingDelete : undefined}
+                />
               ))}
             </div>
           ) : (
@@ -172,7 +188,7 @@ export function DocumentsPage() {
               sortKey={sortKey}
               sortDir={sortDir}
               onSort={handleSort}
-              onDelete={setPendingDelete}
+              onDelete={canDelete ? setPendingDelete : undefined}
             />
           )}
 

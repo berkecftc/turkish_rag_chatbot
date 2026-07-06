@@ -13,7 +13,8 @@ import type { DocumentOut } from "@/shared/types/api";
 
 export interface DocumentCardProps {
   doc: DocumentOut;
-  onDelete: (doc: DocumentOut) => void;
+  /** When omitted, the delete action is hidden (no `document:delete` permission). */
+  onDelete?: (doc: DocumentOut) => void;
 }
 
 /** Mobile-friendly stacked card representation of a document. */
@@ -34,18 +35,20 @@ export function DocumentCard({ doc, onDelete }: DocumentCardProps) {
         <p className="min-w-0 flex-1 truncate font-medium text-foreground" title={doc.title}>
           {doc.title}
         </p>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
-          aria-label={`"${doc.title}" belgesini sil`}
-          onClick={(e) => {
-            e.stopPropagation();
-            onDelete(doc);
-          }}
-        >
-          <Trash2 aria-hidden="true" />
-        </Button>
+        {onDelete && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="size-8 shrink-0 text-muted-foreground hover:text-destructive"
+            aria-label={`"${doc.title}" belgesini sil`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(doc);
+            }}
+          >
+            <Trash2 aria-hidden="true" />
+          </Button>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <EnumBadge entry={labelFor(documentSourceLabels, doc.source_type)} />

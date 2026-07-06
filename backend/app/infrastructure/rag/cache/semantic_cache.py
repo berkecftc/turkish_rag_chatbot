@@ -29,8 +29,10 @@ from app.modules.rag.repository import SemanticCacheRepository
 log = get_logger("cache.semantic")
 
 
-def _cache_key(tenant_id: uuid.UUID, query: str) -> str:
-    raw = f"{tenant_id}:{query.strip().lower()}"
+def _cache_key(tenant_id: uuid.UUID, user_id: uuid.UUID, query: str) -> str:
+    # user_id in the key isolates cache entries per user (documents are
+    # owner-scoped, so a cached answer must not cross users).
+    raw = f"{tenant_id}:{user_id}:{query.strip().lower()}"
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
@@ -46,16 +48,18 @@ class SemanticCacheLayer:
         self,
         *,
         tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
         query: str,
         query_embedding: list[float],
     ) -> dict | None:
         self._repo.tenant_id = tenant_id
-        q_hash = _cache_key(tenant_id, query)
+        q_hash = _cache_key(tenant_id, user_id, query)
 
         # Fast-path: exact hash match
         from sqlalchemy import select
         stmt = select(SemanticCache).where(
             SemanticCache.tenant_id == tenant_id,
+            SemanticCache.user_id == user_id,
             SemanticCache.query_hash == q_hash,
             SemanticCache.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
         )
@@ -65,9 +69,10 @@ class SemanticCacheLayer:
             log.info("cache.hit", kind="exact", tenant=str(tenant_id))
             return exact.response_json
 
-        # Semantic similarity match
+        # Semantic similarity match (scoped to this user)
         similar = await self._repo.find_similar(
             tenant_id=tenant_id,
+            user_id=user_id,
             query_embedding=query_embedding,
             threshold=self._sim_threshold,
         )
@@ -82,14 +87,16 @@ class SemanticCacheLayer:
         self,
         *,
         tenant_id: uuid.UUID,
+        user_id: uuid.UUID,
         query: str,
         query_embedding: list[float],
         response: dict,
     ) -> None:
-        q_hash = _cache_key(tenant_id, query)
+        q_hash = _cache_key(tenant_id, user_id, query)
         expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=self._ttl)
         entry = SemanticCache(
             tenant_id=tenant_id,
+            user_id=user_id,
             query_hash=q_hash,
             query_embedding=query_embedding,
             original_query=query,

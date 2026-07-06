@@ -152,6 +152,7 @@ class SemanticCache(UUIDMixin, Base):
     __tablename__ = "semantic_cache"
 
     tenant_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True), index=True)
     query_hash: Mapped[str] = mapped_column(String(64), index=True)  # sha256
     query_embedding: Mapped[list[float] | None] = mapped_column(Vector(_EMBED_DIM))
     original_query: Mapped[str] = mapped_column(Text)
