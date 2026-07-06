@@ -126,7 +126,7 @@ async def list_conversations(
     session: AsyncSession = Depends(get_db),
 ) -> list[ConversationOut]:
     repo = ConversationRepository(session, principal.tenant_id)
-    convs = await repo.list_active(limit=limit, offset=offset)
+    convs = await repo.list_active(principal.user_id, limit=limit, offset=offset)
     return [ConversationOut.model_validate(c) for c in convs]
 
 
@@ -141,6 +141,10 @@ async def get_messages(
     principal: Principal = Depends(get_principal),
     session: AsyncSession = Depends(get_db),
 ) -> list[MessageOut]:
+    conv_repo = ConversationRepository(session, principal.tenant_id)
+    conv = await conv_repo.get(conversation_id)
+    if conv is None or conv.tenant_id != principal.tenant_id or conv.user_id != principal.user_id:
+        raise NotFoundError(f"Conversation {conversation_id} not found")
     repo = MessageRepository(session, principal.tenant_id)
     messages = await repo.recent_in_conversation(conversation_id, limit=limit)
     return [MessageOut.model_validate(m) for m in messages]
@@ -158,7 +162,7 @@ async def rename_conversation(
 ) -> ConversationOut:
     repo = ConversationRepository(session, principal.tenant_id)
     conv = await repo.get(conversation_id)
-    if conv is None or conv.tenant_id != principal.tenant_id:
+    if conv is None or conv.tenant_id != principal.tenant_id or conv.user_id != principal.user_id:
         raise NotFoundError(f"Conversation {conversation_id} not found")
     conv.title = body.title.strip()
     await session.flush()
@@ -181,7 +185,7 @@ async def delete_conversation(
     ondelete=CASCADE); retrieval logs are detached (SET NULL)."""
     repo = ConversationRepository(session, principal.tenant_id)
     conv = await repo.get(conversation_id)
-    if conv is None or conv.tenant_id != principal.tenant_id:
+    if conv is None or conv.tenant_id != principal.tenant_id or conv.user_id != principal.user_id:
         raise NotFoundError(f"Conversation {conversation_id} not found")
     await session.delete(conv)
 

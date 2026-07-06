@@ -15,11 +15,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUI } from "@/stores/ui";
-import { useAuth } from "@/stores/auth";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { useIsMobile } from "@/shared/hooks/useMediaQuery";
-import { usePermissions, decodeAccessToken } from "@/shared/lib/jwt";
-import { useLogout } from "@/features/auth/session";
+import { usePermissions } from "@/shared/lib/jwt";
+import { useLogout, useMe } from "@/features/auth/session";
 import { NAV_ITEMS, SEGMENT_LABELS, BRAND_NAME } from "@/i18n/nav";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
@@ -87,13 +86,18 @@ function Brand({ collapsed }: { collapsed: boolean }) {
 
 /* ------------------------------ User menu ------------------------------- */
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Sahip",
+  admin: "Yönetici",
+  member: "Üye",
+  viewer: "Görüntüleyici",
+};
+
 function UserMenu() {
-  const accessToken = useAuth((s) => s.accessToken);
   const logout = useLogout();
+  const { data: me } = useMe();
   const [open, setOpen] = React.useState(false);
   const ref = React.useRef<HTMLDivElement>(null);
-
-  const claims = decodeAccessToken(accessToken);
 
   React.useEffect(() => {
     if (!open) return;
@@ -118,7 +122,9 @@ function UserMenu() {
     logout();
   }
 
-  const initial = (claims?.sub?.[0] ?? "U").toUpperCase();
+  const displayName = me?.full_name?.trim() || me?.email || "Kullanıcı";
+  const initial = (me?.email?.[0] ?? "U").toUpperCase();
+  const roleLabel = me ? (ROLE_LABELS[me.role] ?? me.role) : null;
 
   return (
     <div ref={ref} className="relative">
@@ -139,11 +145,16 @@ function UserMenu() {
           <div className="px-3 py-2">
             <p className="flex items-center gap-2 text-sm font-medium">
               <UserIcon className="size-4 text-muted-foreground" aria-hidden="true" />
-              <span className="truncate">{claims?.sub ?? "Kullanıcı"}</span>
+              <span className="truncate">{displayName}</span>
             </p>
-            {claims?.tid && (
+            {me?.full_name && (
               <p className="mt-0.5 truncate pl-6 text-xs text-muted-foreground">
-                Kiracı: {claims.tid}
+                {me.email}
+              </p>
+            )}
+            {(roleLabel || me?.tenant_name) && (
+              <p className="mt-0.5 truncate pl-6 text-xs text-muted-foreground">
+                {[roleLabel, me?.tenant_name].filter(Boolean).join(" · ")}
               </p>
             )}
           </div>

@@ -519,7 +519,7 @@ class RagService:
         assert self._conv_repo is not None
         if conv_id is not None:
             conv = await self._conv_repo.get(conv_id)
-            if conv is not None and conv.tenant_id == tenant_id:
+            if conv is not None and conv.tenant_id == tenant_id and conv.user_id == user_id:
                 return conv
 
         conv = Conversation(

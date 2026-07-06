@@ -1,15 +1,19 @@
 /**
- * Client-side session lifecycle. There is NO server logout and NO `/me`
- * endpoint — both are derived entirely on the client:
- *   - logout = clear persisted tokens + wipe the React Query cache + redirect.
- *   - current user = decoded (DISPLAY-ONLY) access-token claims.
+ * Client-side session lifecycle. There is NO server logout — logout clears
+ * persisted tokens + wipes the React Query cache + redirects. Identity comes
+ * from `GET /auth/me` (see useMe); the decoded token claims remain available
+ * for permission checks (useCurrentUser / usePermissions).
  */
 
 import { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 import { queryClient } from "@/lib/queryClient";
+import { queryKeys } from "@/shared/lib/queryKeys";
 import { useAuth } from "@/stores/auth";
 import { decodeAccessToken } from "@/shared/lib/jwt";
+import type { MeOut } from "@/shared/types/api";
 
 /**
  * Returns a stable `logout` callback: clears auth tokens, drops all cached
@@ -49,4 +53,23 @@ export function useCurrentUser(): CurrentUser | null {
     tenantId: claims.tid,
     perms: claims.perms,
   };
+}
+
+async function getMe(): Promise<MeOut> {
+  const { data } = await api.get<MeOut>("/auth/me");
+  return data;
+}
+
+/**
+ * Current user identity from `GET /auth/me` (email, role, tenant). Cached per
+ * session; keyed on the access token so switching accounts refetches.
+ */
+export function useMe(): UseQueryResult<MeOut> {
+  const accessToken = useAuth((s) => s.accessToken);
+  return useQuery({
+    queryKey: [...queryKeys.me(), accessToken],
+    queryFn: getMe,
+    enabled: Boolean(accessToken),
+    staleTime: Infinity,
+  });
 }

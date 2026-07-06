@@ -12,6 +12,7 @@ import { ListSkeleton } from "@/components/Skeletons";
 import { EnumBadge } from "@/components/EnumBadge";
 import { labelFor, jobStatusLabels, ingestionStageLabels } from "@/i18n/labels";
 import { formatRelativeTime } from "@/shared/lib/format";
+import { usePermissions } from "@/shared/lib/jwt";
 import type { JobStatusOut } from "@/shared/types/api";
 
 const MAX_ROWS = 5;
@@ -24,6 +25,7 @@ export interface RecentJobsProps {
 }
 
 export function RecentJobs({ jobs, loading, error, onRetry }: RecentJobsProps) {
+  const { has } = usePermissions();
   return (
     <Card className="flex flex-col p-5">
       <div className="mb-4 flex items-center justify-between gap-2">
@@ -31,9 +33,11 @@ export function RecentJobs({ jobs, loading, error, onRetry }: RecentJobsProps) {
           <UploadCloud className="size-4 text-muted-foreground" aria-hidden="true" />
           Son yüklemeler
         </h2>
-        <Link to="/upload" className="text-xs font-medium text-primary hover:underline">
-          Yükle
-        </Link>
+        {has("document:write") && (
+          <Link to="/upload" className="text-xs font-medium text-primary hover:underline">
+            Yükle
+          </Link>
+        )}
       </div>
 
       {loading ? (

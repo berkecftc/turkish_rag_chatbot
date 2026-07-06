@@ -37,3 +37,14 @@ class UserOut(BaseModel):
     email: EmailStr
     full_name: str | None
     is_active: bool
+
+
+class MeOut(BaseModel):
+    """Current-user identity for the UI (GET /auth/me)."""
+    user_id: uuid.UUID
+    email: EmailStr
+    full_name: str | None
+    role: str
+    tenant_id: uuid.UUID
+    tenant_name: str
+    tenant_slug: str

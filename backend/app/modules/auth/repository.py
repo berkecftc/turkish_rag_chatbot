@@ -17,6 +17,16 @@ class UserRepository(BaseRepository[User]):
         stmt = select(User).where(User.email == email)
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
+    async def membership_in_tenant(
+        self, user_id: uuid.UUID, tenant_id: uuid.UUID
+    ) -> Membership | None:
+        stmt = (
+            select(Membership)
+            .where(Membership.user_id == user_id, Membership.tenant_id == tenant_id)
+            .options(selectinload(Membership.role))
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
+
     async def membership_for(self, user_id: uuid.UUID) -> Membership | None:
         stmt = (
             select(Membership)

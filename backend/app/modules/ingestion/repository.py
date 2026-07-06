@@ -7,6 +7,7 @@ from typing import Sequence
 from sqlalchemy import delete, select
 
 from app.infrastructure.repository import TenantScopedRepository
+from app.modules.documents.models import Document
 from app.modules.ingestion.models import Chunk, IngestionJob, JobStatus, ProcessingFailure
 
 
@@ -48,13 +49,32 @@ class IngestionJobRepository(TenantScopedRepository[IngestionJob]):
         return (await self.session.execute(stmt)).scalar_one_or_none()
 
     async def history(
-        self, *, status: JobStatus | None = None, limit: int = 50, offset: int = 0
+        self,
+        user_id: uuid.UUID,
+        *,
+        status: JobStatus | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> Sequence[IngestionJob]:
-        stmt = select(IngestionJob).where(IngestionJob.tenant_id == self.tenant_id)
+        # Jobs carry no user column; ownership comes from the document.
+        stmt = (
+            select(IngestionJob)
+            .join(Document, Document.id == IngestionJob.document_id)
+            .where(
+                IngestionJob.tenant_id == self.tenant_id,
+                Document.owner_id == user_id,
+            )
+        )
         if status is not None:
             stmt = stmt.where(IngestionJob.status == status)
         stmt = stmt.order_by(IngestionJob.created_at.desc()).limit(limit).offset(offset)
         return (await self.session.execute(stmt)).scalars().all()
+
+    async def document_owner(self, document_id: uuid.UUID) -> uuid.UUID | None:
+        stmt = select(Document.owner_id).where(
+            Document.id == document_id, Document.tenant_id == self.tenant_id
+        )
+        return (await self.session.execute(stmt)).scalar_one_or_none()
 
 
 class FailureRepository(TenantScopedRepository[ProcessingFailure]):

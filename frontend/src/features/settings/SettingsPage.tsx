@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/app/providers/ThemeProvider";
-import { useCurrentUser } from "@/features/auth/session";
+import { useCurrentUser, useMe } from "@/features/auth/session";
 import { usePreferences, type Density } from "@/stores/preferences";
 import { trackEvent } from "@/shared/analytics/observability";
 
@@ -72,8 +72,16 @@ function ToggleRow({
 
 /* ------------------------------- sections ------------------------------- */
 
+const ROLE_LABELS: Record<string, string> = {
+  owner: "Sahip",
+  admin: "Yönetici",
+  member: "Üye",
+  viewer: "Görüntüleyici",
+};
+
 function ProfileSection() {
   const user = useCurrentUser();
+  const { data: me } = useMe();
 
   if (!user) {
     return (
@@ -90,16 +98,26 @@ function ProfileSection() {
     <Section
       icon={<User aria-hidden="true" />}
       title="Profil"
-      description="Kimlik bilgileri erişim jetonundan (JWT) okunur. Sunucu tarafında bir profil uç noktası bulunmadığından bu alanlar salt okunurdur."
+      description="Hesap bilgileri salt okunurdur."
     >
       <dl className="space-y-3">
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <dt className="text-sm text-muted-foreground">Kullanıcı kimliği</dt>
-          <dd className="font-mono text-sm text-foreground">{user.userId || "—"}</dd>
+          <dt className="text-sm text-muted-foreground">Ad Soyad</dt>
+          <dd className="text-sm text-foreground">{me?.full_name || "—"}</dd>
         </div>
         <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-          <dt className="text-sm text-muted-foreground">Kiracı kimliği</dt>
-          <dd className="font-mono text-sm text-foreground">{user.tenantId || "—"}</dd>
+          <dt className="text-sm text-muted-foreground">E-posta</dt>
+          <dd className="text-sm text-foreground">{me?.email || "—"}</dd>
+        </div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <dt className="text-sm text-muted-foreground">Rol</dt>
+          <dd className="text-sm text-foreground">
+            {me ? (ROLE_LABELS[me.role] ?? me.role) : "—"}
+          </dd>
+        </div>
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+          <dt className="text-sm text-muted-foreground">Çalışma alanı</dt>
+          <dd className="text-sm text-foreground">{me?.tenant_name || "—"}</dd>
         </div>
         <div className="space-y-1.5">
           <dt className="text-sm text-muted-foreground">İzinler</dt>

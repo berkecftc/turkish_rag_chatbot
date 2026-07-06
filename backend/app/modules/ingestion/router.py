@@ -24,7 +24,9 @@ async def list_jobs(
     session: AsyncSession = Depends(get_db),
 ) -> list[JobStatusOut]:
     repo = IngestionJobRepository(session, principal.tenant_id)
-    jobs = await repo.history(status=job_status, limit=limit, offset=offset)
+    jobs = await repo.history(
+        principal.user_id, status=job_status, limit=limit, offset=offset
+    )
     return [JobStatusOut.model_validate(j) for j in jobs]
 
 
@@ -38,6 +40,8 @@ async def get_job(
     job = await repo.get(job_id)
     if job is None or job.tenant_id != principal.tenant_id:
         raise NotFoundError(f"Job {job_id} not found")
+    if await repo.document_owner(job.document_id) != principal.user_id:
+        raise NotFoundError(f"Job {job_id} not found")
     return JobStatusOut.model_validate(job)
 
 
@@ -49,6 +53,9 @@ async def list_chunks(
     principal: Principal = Depends(get_principal),
     session: AsyncSession = Depends(get_db),
 ) -> list[ChunkOut]:
+    job_repo = IngestionJobRepository(session, principal.tenant_id)
+    if await job_repo.document_owner(document_id) != principal.user_id:
+        raise NotFoundError(f"Document {document_id} not found")
     repo = ChunkRepository(session, principal.tenant_id)
     chunks = await repo.list_for_document(document_id, limit=limit, offset=offset)
     return [ChunkOut.model_validate(c) for c in chunks]
@@ -63,6 +70,8 @@ async def retry_job(
     repo = IngestionJobRepository(session, principal.tenant_id)
     job = await repo.get(job_id)
     if job is None or job.tenant_id != principal.tenant_id:
+        raise NotFoundError(f"Job {job_id} not found")
+    if await repo.document_owner(job.document_id) != principal.user_id:
         raise NotFoundError(f"Job {job_id} not found")
 
     job.status = JobStatus.QUEUED

@@ -5,12 +5,15 @@
 import { Link } from "react-router-dom";
 import { MessageSquarePlus, UploadCloud, Search } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { usePermissions } from "@/shared/lib/jwt";
 
 interface QuickAction {
   to: string;
   label: string;
   description: string;
   icon: React.ReactNode;
+  /** Permission required to show this action. */
+  perm?: string;
 }
 
 const ACTIONS: QuickAction[] = [
@@ -25,6 +28,7 @@ const ACTIONS: QuickAction[] = [
     label: "Belge yükle",
     description: "PDF, Word, Excel ve daha fazlası",
     icon: <UploadCloud aria-hidden="true" />,
+    perm: "document:write",
   },
   {
     to: "/search",
@@ -35,10 +39,12 @@ const ACTIONS: QuickAction[] = [
 ];
 
 export function QuickActions() {
+  const { has } = usePermissions();
+  const actions = ACTIONS.filter((a) => !a.perm || has(a.perm));
   return (
     <section aria-label="Hızlı işlemler">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {ACTIONS.map((action) => (
+        {actions.map((action) => (
           <Card key={action.to} className="p-0">
             <Link
               to={action.to}

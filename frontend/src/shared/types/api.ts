@@ -154,6 +154,17 @@ export interface SearchResponse {
   latency_ms: number;
 }
 
+// ── Auth: current user ──────────────────────────────────────────────────────
+export interface MeOut {
+  user_id: string;
+  email: string;
+  full_name?: string;
+  role: string;
+  tenant_id: string;
+  tenant_name: string;
+  tenant_slug: string;
+}
+
 // ── RAG: conversations & messages ───────────────────────────────────────────
 export interface ConversationCreate {
   title?: string;

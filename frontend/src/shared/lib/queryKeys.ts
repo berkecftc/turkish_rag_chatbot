@@ -22,6 +22,8 @@ export interface ListParams {
 }
 
 export const queryKeys = {
+  me: () => ["me"] as const,
+
   documents: (params: ListParams = {}) => ["documents", params] as const,
   document: (id: string) => ["document", id] as const,
 

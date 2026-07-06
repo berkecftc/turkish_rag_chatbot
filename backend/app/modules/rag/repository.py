@@ -15,11 +15,14 @@ from app.modules.rag.models import Citation, Conversation, Message, MessageRole,
 class ConversationRepository(TenantScopedRepository[Conversation]):
     model = Conversation
 
-    async def list_active(self, *, limit: int = 50, offset: int = 0) -> Sequence[Conversation]:
+    async def list_active(
+        self, user_id: uuid.UUID, *, limit: int = 50, offset: int = 0
+    ) -> Sequence[Conversation]:
         stmt = (
             select(Conversation)
             .where(
                 Conversation.tenant_id == self.tenant_id,
+                Conversation.user_id == user_id,
                 Conversation.is_archived.is_(False),
             )
             .order_by(Conversation.last_message_at.desc().nullslast())
