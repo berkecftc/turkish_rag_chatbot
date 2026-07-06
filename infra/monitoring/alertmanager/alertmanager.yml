@@ -1,0 +1,39 @@
+# Alert routing. Default receiver is a no-op placeholder — wire up one of the
+# examples below (Slack webhook / email) and remove the placeholder.
+route:
+  receiver: default
+  group_by: [alertname, severity]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - matchers: [severity = "critical"]
+      receiver: default
+      repeat_interval: 1h
+
+receivers:
+  - name: default
+    # Placeholder webhook (replace). Examples:
+    #
+    # Slack:
+    #   slack_configs:
+    #     - api_url: https://hooks.slack.com/services/T000/B000/XXXX
+    #       channel: "#alerts"
+    #       title: "{{ .CommonAnnotations.summary }}"
+    #
+    # Email (SMTP):
+    #   email_configs:
+    #     - to: you@example.com
+    #       from: alerts@example.com
+    #       smarthost: smtp.example.com:587
+    #       auth_username: alerts@example.com
+    #       auth_password: CHANGE_ME
+    webhook_configs:
+      - url: http://127.0.0.1:9/dev-null   # intentionally dead endpoint
+        send_resolved: false
+
+inhibit_rules:
+  # A down service will also fire latency/error alerts — silence the noise.
+  - source_matchers: [alertname = "ServiceDown"]
+    target_matchers: [severity = "warning"]
+    equal: [job]

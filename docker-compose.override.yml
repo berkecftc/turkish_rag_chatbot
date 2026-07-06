@@ -19,12 +19,16 @@ services:
       - "9001:9001"     # console
 
   api:
+    build:
+      target: dev
     volumes:
       - ./backend:/app
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     ports: ["8000:8000"]
 
   worker:
+    build:
+      target: dev
     volumes:
       - ./backend:/app
     command: ["watchmedo", "auto-restart", "--directory=./app", "--pattern=*.py", "--recursive", "--", "celery", "-A", "app.workers.celery_app.celery", "worker", "--loglevel=DEBUG", "--concurrency=2", "-Q", "ingestion,default"]

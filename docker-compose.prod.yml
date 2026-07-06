@@ -1,0 +1,428 @@
+name: turkish-rag-prod
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Production stack. Standalone file — run explicitly:
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d
+#
+# Profiles:
+#   (default)     core app: nginx, frontend, api, worker, datastores, ollama
+#   monitoring    prometheus, grafana, alertmanager, loki, promtail, exporters
+#   certbot       Let's Encrypt issuance/renewal sidecar
+#
+# GPU: CPU by default. For a GPU host add the overlay:
+#   docker compose -f docker-compose.prod.yml -f docker-compose.gpu.yml up -d
+#
+# Network layout (single-host defense in depth):
+#   edge      nginx <-> frontend/api          (only nginx publishes ports)
+#   backend   api/worker <-> data services    (no published ports)
+#   monitor   prometheus <-> exporters        (grafana bound to 127.0.0.1)
+# ─────────────────────────────────────────────────────────────────────────────
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "20m"
+    max-file: "5"
+
+x-backend-env: &backend-env
+  APP_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
+  CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672//
+  CELERY_RESULT_BACKEND: redis://:${REDIS_PASSWORD}@redis:6379/1
+  STORAGE_ENDPOINT: http://minio:9000
+  STORAGE_ACCESS_KEY: ${MINIO_ROOT_USER}
+  STORAGE_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+  STORAGE_BUCKET: ${STORAGE_BUCKET:-documents}
+  CORS_ORIGINS: ${PUBLIC_ORIGIN}
+  GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+  LLM_PROVIDER: ${LLM_PROVIDER:-ollama}
+  OLLAMA_BASE_URL: http://ollama:11434
+  OLLAMA_MODEL: ${OLLAMA_MODEL:-qwen2.5:7b-instruct}
+  OCR_ENGINE: tesseract
+  JWT_PRIVATE_KEY: ${JWT_PRIVATE_KEY}
+  JWT_PUBLIC_KEY: ${JWT_PUBLIC_KEY}
+
+services:
+  # ── Edge ───────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/conf.d:/etc/nginx/conf.d:ro
+      - certs:/etc/nginx/certs:ro
+      - certbot-webroot:/var/www/certbot:ro
+    depends_on:
+      frontend: { condition: service_started }
+      api: { condition: service_healthy }
+    networks: [edge]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 256M }
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  certbot:
+    image: certbot/certbot:latest
+    profiles: [certbot]
+    volumes:
+      - certs:/etc/letsencrypt
+      - certbot-webroot:/var/www/certbot
+    entrypoint: >
+      /bin/sh -c 'trap exit TERM;
+      while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done'
+    networks: [edge]
+    restart: unless-stopped
+    logging: *default-logging
+
+  # ── App ────────────────────────────────────────────────────────────────────
+  frontend:
+    image: ${FRONTEND_IMAGE:-turkish-rag-frontend:prod}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    networks: [edge]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 128M }
+
+  api:
+    image: ${BACKEND_IMAGE:-turkish-rag-backend:prod}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: prod
+    environment:
+      <<: *backend-env
+    volumes:
+      - hfcache:/home/appuser/.cache/huggingface
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    networks: [edge, backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 4G }
+        reservations: { memory: 1G }
+
+  worker:
+    image: ${BACKEND_IMAGE:-turkish-rag-backend:prod}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: prod
+    environment:
+      <<: *backend-env
+    volumes:
+      - hfcache:/home/appuser/.cache/huggingface
+    command: ["celery", "-A", "app.workers.celery_app.celery", "worker",
+              "--loglevel=INFO", "--concurrency=2", "-Q", "ingestion,default",
+              "--max-tasks-per-child=50"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 4G }
+        reservations: { memory: 1G }
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.workers.celery_app.celery inspect ping -d celery@$$HOSTNAME | grep -q pong"]
+      interval: 60s
+      timeout: 15s
+      start_period: 60s
+      retries: 3
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollamadata:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: ${OLLAMA_KEEP_ALIVE:-30m}
+      OLLAMA_NUM_PARALLEL: 1
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "4.0", memory: 10G }
+        reservations: { memory: 5G }
+    healthcheck:
+      test: ["CMD", "ollama", "ls"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  # ── Data ───────────────────────────────────────────────────────────────────
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=512MB
+      - -c
+      - effective_cache_size=1536MB
+      - -c
+      - maintenance_work_mem=256MB
+      - -c
+      - work_mem=16MB
+      - -c
+      - max_connections=100
+      - -c
+      - wal_level=replica            # replication-ready
+      - -c
+      - max_wal_senders=3
+      - -c
+      - log_min_duration_statement=1000
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backups/postgres:/backups
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "2.0", memory: 2G }
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes",
+              "--requirepass", "${REDIS_PASSWORD}",
+              "--maxmemory", "384mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redisdata:/data
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 512M }
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a $$REDIS_PASSWORD ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+      - ./infra/rabbitmq/enabled_plugins:/etc/rabbitmq/enabled_plugins:ro
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M }
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+    networks: [backend]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 512M }
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  # ── Monitoring (profile: monitoring) ──────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    profiles: [monitoring]
+    volumes:
+      - ./infra/monitoring/prometheus:/etc/prometheus:ro
+      - promdata:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks: [backend, monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 1G }
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    profiles: [monitoring]
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: ${PUBLIC_ORIGIN}/grafana
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafanadata:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3001:3000"
+    networks: [monitor, edge]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.50", memory: 512M }
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: [monitoring]
+    volumes:
+      - ./infra/monitoring/alertmanager:/etc/alertmanager:ro
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml"]
+    ports:
+      - "127.0.0.1:9093:9093"
+    networks: [monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  loki:
+    image: grafana/loki:3.1.0
+    profiles: [monitoring]
+    volumes:
+      - ./infra/monitoring/loki/loki-config.yml:/etc/loki/config.yml:ro
+      - lokidata:/loki
+    command: ["-config.file=/etc/loki/config.yml"]
+    networks: [monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "1.0", memory: 768M }
+
+  promtail:
+    image: grafana/promtail:3.1.0
+    profiles: [monitoring]
+    volumes:
+      - ./infra/monitoring/promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: ["-config.file=/etc/promtail/config.yml"]
+    networks: [monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 256M }
+
+  node-exporter:
+    image: prom/node-exporter:v1.8.1
+    profiles: [monitoring]
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
+    command: ["--path.rootfs=/host"]
+    networks: [monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    profiles: [monitoring]
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?sslmode=disable
+    networks: [backend, monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.61.0
+    profiles: [monitoring]
+    environment:
+      REDIS_ADDR: redis://redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [backend, monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 64M }
+
+  celery-exporter:
+    image: danihodovic/celery-exporter:0.10.12
+    profiles: [monitoring]
+    environment:
+      CE_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@rabbitmq:5672//
+    networks: [backend, monitor]
+    restart: unless-stopped
+    logging: *default-logging
+    deploy:
+      resources:
+        limits: { cpus: "0.25", memory: 128M }
+
+networks:
+  edge:
+  backend:
+  monitor:
+
+volumes:
+  pgdata:
+  redisdata:
+  rabbitmqdata:
+  miniodata:
+  ollamadata:
+  hfcache:
+  certs:
+  certbot-webroot:
+  promdata:
+  grafanadata:
+  lokidata:

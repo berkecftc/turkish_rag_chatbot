@@ -40,3 +40,11 @@ Thumbs.db
 # Docker / logs
 *.log
 logs/
+!.env.prod.example
+
+# Session/dev notes (personal paths, local credentials)
+docs/HANDOFF.md
+
+# Claude Code tooling (not part of the project)
+.agents/
+.claude/

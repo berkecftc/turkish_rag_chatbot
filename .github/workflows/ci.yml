@@ -1,0 +1,206 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:        # manual run (enables ai-eval job)
+  schedule:
+    - cron: "0 6 * * 1"     # weekly AI-eval (Mondays 06:00 UTC)
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.11"
+  NODE_VERSION: "20"
+
+jobs:
+  # ── 1-2. Lint + type check ─────────────────────────────────────────────────
+  backend-quality:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: Install dev deps
+        run: pip install ".[dev]"
+      - name: Ruff (lint)
+        run: ruff check app
+      - name: Import-linter (module boundaries)
+        run: lint-imports
+      # mypy --strict is aspirational on this codebase; advisory until clean.
+      - name: Mypy (advisory)
+        run: mypy app || true
+
+  frontend-quality:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: ESLint
+        run: npm run lint
+      - name: TypeScript
+        run: npm run typecheck
+
+  # ── 3-4. Unit + integration tests ─────────────────────────────────────────
+  backend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults: { run: { working-directory: backend } }
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rag
+          POSTGRES_PASSWORD: rag
+          POSTGRES_DB: rag_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rag"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+      rabbitmq:
+        image: rabbitmq:3.13-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: rag
+          RABBITMQ_DEFAULT_PASS: rag
+        ports: ["5672:5672"]
+      minio:
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: minio
+          MINIO_ROOT_PASSWORD: minio123
+        ports: ["9000:9000"]
+    env:
+      APP_ENV: test
+      DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag_test
+      REDIS_URL: redis://localhost:6379/0
+      CELERY_BROKER_URL: amqp://rag:rag@localhost:5672//
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      STORAGE_ENDPOINT: http://localhost:9000
+      STORAGE_ACCESS_KEY: minio
+      STORAGE_SECRET_KEY: minio123
+      STORAGE_BUCKET: documents
+      OCR_ENGINE: tesseract
+      HF_HOME: /home/runner/.cache/huggingface
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - name: System deps (OCR/PDF)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-tur poppler-utils
+      - name: Cache HF embedding models
+        uses: actions/cache@v4
+        with:
+          path: /home/runner/.cache/huggingface
+          key: hf-models-${{ runner.os }}-bge-m3
+      - name: Install deps
+        run: pip install ".[dev]"
+      - name: Generate ephemeral JWT keypair
+        run: |
+          openssl genrsa -out /tmp/jwt.pem 2048
+          openssl rsa -in /tmp/jwt.pem -pubout -out /tmp/jwt.pub
+          {
+            echo "JWT_PRIVATE_KEY<<EOF"; cat /tmp/jwt.pem; echo "EOF"
+            echo "JWT_PUBLIC_KEY<<EOF"; cat /tmp/jwt.pub; echo "EOF"
+          } >> "$GITHUB_ENV"
+      - name: Migrations
+        run: alembic upgrade head
+      - name: Unit tests
+        run: pytest tests/unit -x
+      - name: Integration tests
+        run: pytest tests/integration -x
+
+  # ── 5. AI evaluation (manual/scheduled: costs tokens) ─────────────────────
+  ai-eval:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    defaults: { run: { working-directory: backend } }
+    env:
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag
+      CELERY_BROKER_URL: amqp://guest:guest@localhost:5672//
+      CELERY_RESULT_BACKEND: redis://localhost:6379/1
+      STORAGE_ENDPOINT: http://localhost:9000
+      STORAGE_ACCESS_KEY: minio
+      STORAGE_SECRET_KEY: minio123
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+      - run: pip install ".[dev]"
+      - name: RAG quality evals (groundedness / hallucination)
+        run: pytest tests/evaluation -x
+
+  # ── 6. Security scans ──────────────────────────────────────────────────────
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Trivy (filesystem: vulns + secrets + misconfig)"
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.11" }
+      - name: pip-audit (backend deps)
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit --strict --skip-editable . || true   # advisory
+      - uses: actions/setup-node@v4
+        with: { node-version: "20" }
+      - name: npm audit (frontend deps, advisory)
+        working-directory: frontend
+        run: npm audit --audit-level=critical || true
+
+  # ── 7. Docker build validation (no push) ───────────────────────────────────
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build backend (prod target)
+        uses: docker/build-push-action@v6
+        with:
+          context: backend
+          target: prod
+          push: false
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - name: Build frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          push: false
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+
+# Weekly AI-eval schedule (kept separate so PR CI stays fast/cheap)
+# (schedule triggers require the workflow on the default branch)
