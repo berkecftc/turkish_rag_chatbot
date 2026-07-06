@@ -11,6 +11,7 @@ Upload company documents (PDF, DOCX, XLSX, CSV, scanned images), let an async OC
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 ![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions&logoColor=white)
 ![LLM](https://img.shields.io/badge/LLM-Ollama_(local)-000000)
+![License](https://img.shields.io/badge/License-MIT-green)
 
 > Built as a **production-shaped SaaS**, not a demo: clean architecture with CI-enforced module boundaries, async ingestion, RBAC + multi-tenancy + per-user data isolation, full observability stack, tag-driven CI/CD, and a documented deployment story.
 
@@ -317,7 +318,7 @@ Full production guide — server sizing, TLS/Let's Encrypt, backup & restore wit
 
 ## License
 
-No license granted yet — all rights reserved. Open an issue if you'd like to use this work.
+[MIT](LICENSE) © Ahmet Berke Çiftçi
 
 ---
 
