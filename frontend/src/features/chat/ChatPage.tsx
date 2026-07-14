@@ -55,9 +55,13 @@ function ConversationRail({
   const [editing, setEditing] = React.useState<{ id: string; value: string } | null>(null);
   const inputRef = React.useRef<HTMLInputElement>(null);
 
+  // Select the input's text when a row ENTERS edit mode (id changes) — not on
+  // every keystroke, which is why we depend on the id rather than `editing`
+  // itself (the object is recreated on each onChange).
+  const editingId = editing?.id;
   React.useEffect(() => {
-    if (editing) inputRef.current?.select();
-  }, [editing?.id]);
+    if (editingId) inputRef.current?.select();
+  }, [editingId]);
 
   const handleDelete = () => {
     if (!confirm) return;

@@ -61,9 +61,11 @@ export function SourcesList({ citations, highlightNumber, messageId }: SourcesLi
 
 function SourceRow({ citation, defaultOpen }: { citation: CitationOut; defaultOpen: boolean }) {
   const [open, setOpen] = React.useState(defaultOpen);
-  React.useEffect(() => {
+  const [prevDefault, setPrevDefault] = React.useState(defaultOpen);
+  if (defaultOpen !== prevDefault) {
+    setPrevDefault(defaultOpen);
     if (defaultOpen) setOpen(true);
-  }, [defaultOpen]);
+  }
 
   const meta: string[] = [];
   if (citation.page_number != null) meta.push(`Sayfa ${citation.page_number}`);

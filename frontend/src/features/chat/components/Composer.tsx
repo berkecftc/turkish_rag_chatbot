@@ -55,7 +55,11 @@ export function Composer({ onSend, onStop, isStreaming, disabled }: ComposerProp
 
   const mentionOpen = mention != null && suggestions.length > 0;
 
-  React.useEffect(() => setActiveIndex(0), [mention]);
+  const [prevMention, setPrevMention] = React.useState(mention);
+  if (mention !== prevMention) {
+    setPrevMention(mention);
+    setActiveIndex(0);
+  }
 
   const handleChange = (next: string) => {
     setValue(next);

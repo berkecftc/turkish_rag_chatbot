@@ -41,7 +41,9 @@ export function UploadPage() {
   // resolution, which left rows stuck at "Yükleniyor — %100".
   const upload = useUploadDocument();
   const uploadRef = React.useRef(upload);
-  uploadRef.current = upload;
+  React.useEffect(() => {
+    uploadRef.current = upload;
+  });
 
   const handleChange = React.useCallback((id: string, patch: Partial<UploadItemState>) => {
     setItems((prev) => prev.map((it) => (it.id === id ? { ...it, ...patch } : it)));

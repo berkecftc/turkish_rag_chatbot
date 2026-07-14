@@ -92,7 +92,8 @@ export function IngestionMonitor() {
   const { has } = usePermissions();
   const canRetry = has("ingestion:write") || has("documents:write");
 
-  const jobs = data ?? [];
+  const jobs = React.useMemo(() => data ?? [], [data]);
+
   const counts = React.useMemo(() => countByStatus(jobs), [jobs]);
   const failed = React.useMemo(
     () => jobs.filter((j) => isFailedLike(j.status)),

@@ -110,6 +110,19 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
     useChatStore.setState({ isStreaming: false, phase: "idle", abort: null });
   }, [flushDeltas]);
 
+  // After `done`: mark finished, then invalidate so the persisted thread loads.
+  // The ephemeral draft stays visible (finish() leaves it) until the persisted
+  // assistant row actually arrives — reconciled in the effect below — so there's
+  // no flash where the answer briefly disappears.
+  const handleDone = React.useCallback(
+    (doneMeta: StreamDoneMeta, convId: string) => {
+      useChatStore.getState().finish(doneMeta);
+      qc.invalidateQueries({ queryKey: queryKeys.messages(convId) });
+      qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
+    },
+    [qc],
+  );
+
   const send = React.useCallback(
     async (rawQuery: string, opts?: SendOptions) => {
       const query = rawQuery.trim();
@@ -145,9 +158,9 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
             scheduleFlush();
           },
           onCitation: (c) => useChatStore.getState().addCitation(c),
-          onDone: (meta) => {
+          onDone: (doneMeta) => {
             flushDeltas();
-            handleDone(meta, convId as string);
+            handleDone(doneMeta, convId as string);
           },
           onError: (err) => {
             flushDeltas();
@@ -158,22 +171,14 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
         abort.signal,
       );
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [conversationId, qc, navigate, scheduleFlush, flushDeltas],
+    [conversationId, qc, navigate, scheduleFlush, flushDeltas, handleDone],
   );
 
-  // After `done`: mark finished, then invalidate so the persisted thread loads.
-  // The ephemeral draft stays visible (handleDone leaves it) until the persisted
-  // assistant row actually arrives — reconciled in the effect below — so there's
-  // no flash where the answer briefly disappears.
-  function handleDone(meta: StreamDoneMeta, convId: string) {
-    useChatStore.getState().finish(meta);
-    qc.invalidateQueries({ queryKey: queryKeys.messages(convId) });
-    qc.invalidateQueries({ queryKey: queryKeyRoots.conversations });
-  }
-
   // ── Build the merged thread view ──────────────────────────────────────────
-  const serverMessages = messagesQuery.data ?? [];
+  const serverMessages = React.useMemo(
+    () => messagesQuery.data ?? [],
+    [messagesQuery.data],
+  );
 
   // Reconcile: once the persisted assistant message (matching the done event's
   // message_id) lands in the cache, clear the ephemeral stream state. A safety
@@ -194,6 +199,7 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
     }, RECONCILE_TIMEOUT_MS);
     return () => window.clearTimeout(t);
   }, [serverMessages, store.doneMeta, store.isStreaming]);
+
   // The ephemeral stream belongs to exactly one conversation (store.conversationId).
   // Show its optimistic rows ONLY on that conversation's page — or on the brand-new
   // /chat page (no id yet) while that conversation is being created. The previous
@@ -259,7 +265,6 @@ export function useStreamingChat(conversationId: string | undefined): UseStreami
     }
 
     return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     serverMessages,
     streamingActive,

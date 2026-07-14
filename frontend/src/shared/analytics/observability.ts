@@ -57,7 +57,7 @@ const consoleSink: ObservabilitySink = {
         : event.type === "stream_interrupted"
           ? "color:#f59e0b;font-weight:600"
           : "color:#6366f1;font-weight:600";
-    // eslint-disable-next-line no-console
+     
     console.debug(tag, style, event.name, event.props ?? {});
   },
 };

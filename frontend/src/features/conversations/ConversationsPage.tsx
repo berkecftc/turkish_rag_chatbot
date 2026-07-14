@@ -89,7 +89,7 @@ export function ConversationsPage() {
     offset: page * PAGE_SIZE,
   });
 
-  const conversations = data ?? [];
+  const conversations = React.useMemo(() => data ?? [], [data]);
 
   // Client-side title search over the loaded page.
   const filtered = React.useMemo(() => {

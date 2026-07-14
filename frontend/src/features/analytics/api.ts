@@ -269,7 +269,7 @@ export function useAnalytics(range: AnalyticsRange): {
       latencyTrend: { data: mockAnalytics.latencyTrend(days), isSample: true },
       activityOverTime: { data: mockAnalytics.activityOverTime(days), isSample: true },
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [isLoading, jobsQuery.data, allMessages, days]);
 
   const refetch = () => {
