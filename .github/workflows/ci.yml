@@ -82,12 +82,14 @@ jobs:
           RABBITMQ_DEFAULT_PASS: rag
         ports: ["5672:5672"]
       minio:
-        image: bitnami/minio:latest
+        image: bitnamilegacy/minio:latest
         env:
           MINIO_ROOT_USER: minio
           MINIO_ROOT_PASSWORD: minio123
         ports: ["9000:9000"]
-    env:
+        options: >-
+          --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
+          --health-interval 5s --health-timeout 5s --health-retries 10
       APP_ENV: test
       DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag_test
       REDIS_URL: redis://localhost:6379/0
