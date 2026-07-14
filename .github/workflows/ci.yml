@@ -133,6 +133,9 @@ jobs:
         run: pytest tests/unit -x
       - name: Integration tests
         run: pytest tests/integration -x
+      - name: Debug minio logs
+        if: failure()
+        run: docker logs $(docker ps -aq --filter "ancestor=bitnamilegacy/minio:latest") 2>&1 | head -60
 
   # ── 5. AI evaluation (manual/scheduled: costs tokens) ─────────────────────
   ai-eval:
