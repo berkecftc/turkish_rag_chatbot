@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "turkish-rag-backend"
 version = "0.1.0"
@@ -48,18 +52,32 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # test
     "pytest>=8.3",
     "pytest-asyncio>=0.24",
     "httpx>=0.28",
+    "factory-boy>=3.3",
+    "faker>=40.19",
+    "hypothesis>=6.154",
+    "testcontainers>=4.14",
+    "locust>=2.44",
+    # quality
     "ruff>=0.8",
     "mypy>=1.13",
     "import-linter>=2.1",
+    # tooling
     "watchdog>=6.0",
 ]
+
+# Only `app` is an installable package; `migrations/` is Alembic's
+# working directory and must not be packaged.
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "C4"]
 ignore = ["S101"]  # allow asserts in tests
@@ -77,6 +95,7 @@ addopts = "-q"
 # other's internals — only public services + core/domain/infrastructure.
 [tool.importlinter]
 root_package = "app"
+
 [[tool.importlinter.contracts]]
 name = "Modules are independent"
 type = "independence"
@@ -89,13 +108,4 @@ modules = [
     "app.modules.rag",
     "app.modules.audit",
     "app.modules.admin",
-]
-
-[dependency-groups]
-dev = [
-    "factory-boy>=3.3.3",
-    "faker>=40.19.1",
-    "hypothesis>=6.154.1",
-    "locust>=2.44.0",
-    "testcontainers>=4.14.2",
 ]
