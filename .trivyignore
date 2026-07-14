@@ -1,0 +1,5 @@
+# Starlette CVE-2026-48818 / CVE-2026-54283: fix starlette 1.x'te,
+# FastAPI henüz 1.x'i desteklemiyor. FastAPI güncellenince kaldır.
+# Gözden geçirme: 2026-08
+CVE-2026-48818
+CVE-2026-54283
