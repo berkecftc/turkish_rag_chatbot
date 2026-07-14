@@ -86,6 +86,8 @@ jobs:
         env:
           MINIO_ROOT_USER: minio
           MINIO_ROOT_PASSWORD: minio123
+          MINIO_ACCESS_KEY: minio
+          MINIO_SECRET_KEY: minio123
         ports: ["9000:9000"]
         options: >-
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
