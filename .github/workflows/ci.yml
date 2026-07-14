@@ -90,6 +90,7 @@ jobs:
         options: >-
           --health-cmd "curl -f http://localhost:9000/minio/health/live || exit 1"
           --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
       APP_ENV: test
       DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag_test
       REDIS_URL: redis://localhost:6379/0
