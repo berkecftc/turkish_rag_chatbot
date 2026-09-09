@@ -16,11 +16,11 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 log = get_logger("ai.embedder")
-_model: "SentenceTransformer | None" = None
+_model: SentenceTransformer | None = None
 _lock = asyncio.Lock()
 
 
-def _load_model(model_name: str) -> "SentenceTransformer":
+def _load_model(model_name: str) -> SentenceTransformer:
     global _model
     if _model is None:
         from sentence_transformers import SentenceTransformer
@@ -44,7 +44,12 @@ class BgeM3Embedder:
 
     def _encode_sync(self, texts: list[str]) -> list[list[float]]:
         model = self._model()
-        vecs = model.encode(texts, normalize_embeddings=True, show_progress_bar=False, batch_size=self._batch_size)
+        vecs = model.encode(
+            texts,
+            normalize_embeddings=True,
+            show_progress_bar=False,
+            batch_size=self._batch_size,
+        )
         return [v.tolist() for v in vecs]
 
     async def embed_documents(self, texts: list[str]) -> list[Embedding]:

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass, field
-from typing import Union
 
 from app.infrastructure.rag.retrieval.bm25_search import BM25Result
 from app.infrastructure.rag.retrieval.vector_search import VectorResult
@@ -55,7 +54,7 @@ class ReciprocRankFusion:
         # Index by chunk_id for deduplication
         index: dict[uuid.UUID, FusedResult] = {}
 
-        def _base(r: Union[VectorResult, BM25Result]) -> FusedResult:
+        def _base(r: VectorResult | BM25Result) -> FusedResult:
             vr = r if isinstance(r, VectorResult) else None
             br = r if isinstance(r, BM25Result) else None
             return FusedResult(

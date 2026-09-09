@@ -8,7 +8,7 @@ this module within its boundary.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core import security
 from app.core.config import get_settings
@@ -40,7 +40,7 @@ class AuthService:
             raise AuthenticationError("User has no tenant membership")
 
         perms = [p.code for p in membership.role.permissions]
-        user.last_login_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        user.last_login_at = datetime.now(UTC).replace(tzinfo=None)
         return await self._issue(user.id, membership.tenant_id, perms)
 
     async def refresh(self, refresh_token: str) -> TokenPair:
@@ -80,15 +80,15 @@ class AuthService:
                 user_id=user_id,
                 jti=uuid.UUID(jti),
                 expires_at=datetime.fromtimestamp(
-                    security.decode_token(refresh)["exp"], tz=timezone.utc
+                    security.decode_token(refresh)["exp"], tz=UTC
                 ).replace(tzinfo=None),
             )
         )
         return TokenPair(access_token=access, refresh_token=refresh)
 
     async def _revoke(self, token: RefreshToken) -> None:
-        token.revoked_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        token.revoked_at = datetime.now(UTC).replace(tzinfo=None)
+        now_naive = datetime.now(UTC).replace(tzinfo=None)
         ttl = int((token.expires_at - now_naive).total_seconds())
         if ttl > 0:
             await redis_client.setex(f"{_REVOKED_PREFIX}{token.jti}", ttl, "1")

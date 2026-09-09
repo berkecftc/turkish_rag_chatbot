@@ -37,7 +37,7 @@ class BgeEmbedderStage:
         texts = [c.content for c in ctx.chunks]
         embeddings = await asyncio.to_thread(self._embed_batched, model, texts)
 
-        for chunk, emb in zip(ctx.chunks, embeddings):
+        for chunk, emb in zip(ctx.chunks, embeddings, strict=True):
             chunk.metadata["embedding"] = emb.dense
 
         log.info("embedder.done", document_id=ctx.document_id, chunks=len(ctx.chunks))

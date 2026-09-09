@@ -16,10 +16,10 @@ if TYPE_CHECKING:
     from sentence_transformers import CrossEncoder
 
 log = get_logger("ai.reranker")
-_model: "CrossEncoder | None" = None
+_model: CrossEncoder | None = None
 
 
-def _load_model(model_name: str) -> "CrossEncoder":
+def _load_model(model_name: str) -> CrossEncoder:
     global _model
     if _model is None:
         from sentence_transformers import CrossEncoder
@@ -55,7 +55,7 @@ class BgeReranker:
         passages = [c.content for c in candidates]
         scores = await asyncio.to_thread(self._score_sync, query, passages)
 
-        scored = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+        scored = sorted(zip(candidates, scores, strict=True), key=lambda x: x[1], reverse=True)
         filtered = [(c, s) for c, s in scored if s >= self._threshold]
 
         result: list[RetrievedChunk] = []

@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import asyncio
 import math
-import uuid
 from dataclasses import dataclass
 
 from app.core.config import get_settings
@@ -81,7 +80,10 @@ class BgeRerankerEngine:
         scores = await asyncio.to_thread(self._score_sync, query, passages)
 
         ranked = sorted(
-            (RankedResult(result=c, rerank_score=s) for c, s in zip(candidates, scores)),
+            (
+                RankedResult(result=c, rerank_score=s)
+                for c, s in zip(candidates, scores, strict=True)
+            ),
             key=lambda r: r.rerank_score,
             reverse=True,
         )

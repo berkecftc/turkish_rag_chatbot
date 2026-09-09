@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import traceback
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.logging import get_logger
 from app.workers.celery_app import celery
@@ -14,7 +14,7 @@ log = get_logger("ingestion")
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+    return datetime.now(UTC).replace(tzinfo=None)
 
 
 class _PassthroughExtractor:
@@ -71,8 +71,8 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
     from app.infrastructure.ingestion.storage.minio_storage import MinioStorage
     from app.modules.documents.models import DocumentStatus
     from app.modules.documents.repository import DocumentRepository
-    from app.modules.ingestion.models import IngestionJob, IngestionStage, JobStatus
-    from app.modules.ingestion.repository import ChunkRepository, FailureRepository, IngestionJobRepository
+    from app.modules.ingestion.models import IngestionStage, JobStatus
+    from app.modules.ingestion.repository import IngestionJobRepository
     from app.workers.pipeline import IngestionContext
 
     settings = get_settings()
@@ -82,11 +82,12 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
     job_uuid = uuid.UUID(job_id)
 
     async with SessionFactory() as session:
-        await session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_id})
+        await session.execute(
+            text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_id}
+        )
 
         doc_repo = DocumentRepository(session, tenant_uuid)
         job_repo = IngestionJobRepository(session, tenant_uuid)
-        chunk_repo = ChunkRepository(session, tenant_uuid)
 
         doc = await doc_repo.get(doc_uuid)
         job = await job_repo.get(job_uuid)
@@ -114,11 +115,12 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
             pipeline = _build_pipeline(doc.mime_type)
             ctx = await pipeline.run(ctx)
 
-            # Persist chunks
-            from app.modules.ingestion.models import Chunk as ChunkModel, EmbeddingStatus
-
-            # Delete existing chunks for idempotency
+            # Persist chunks (delete existing chunks first for idempotency)
             from sqlalchemy import delete
+
+            from app.modules.ingestion.models import Chunk as ChunkModel
+            from app.modules.ingestion.models import EmbeddingStatus
+
             await session.execute(
                 delete(ChunkModel).where(
                     ChunkModel.document_id == doc_uuid,
@@ -140,7 +142,9 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
                     char_end=chunk.metadata.get("char_end"),
                     chunk_strategy=chunk.metadata.get("strategy", "token_sliding"),
                     embedding=embedding,
-                    embedding_status=EmbeddingStatus.EMBEDDED if embedding else EmbeddingStatus.PENDING,
+                    embedding_status=(
+                        EmbeddingStatus.EMBEDDED if embedding else EmbeddingStatus.PENDING
+                    ),
                 )
                 session.add(orm_chunk)
 
@@ -164,10 +168,11 @@ async def _run_pipeline(document_id: str, tenant_id: str, job_id: str) -> None:
             await session.rollback()
 
             async with SessionFactory() as err_session:
-                await err_session.execute(text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_id})
+                await err_session.execute(
+                    text("SELECT set_config('app.tenant_id', :tid, true)"), {"tid": tenant_id}
+                )
                 err_job_repo = IngestionJobRepository(err_session, tenant_uuid)
                 err_doc_repo = DocumentRepository(err_session, tenant_uuid)
-                fail_repo = FailureRepository(err_session, tenant_uuid)
 
                 err_job = await err_job_repo.get(job_uuid)
                 err_doc = await err_doc_repo.get(doc_uuid)

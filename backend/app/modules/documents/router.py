@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import uuid
+from datetime import UTC
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, UploadFile, status
@@ -79,10 +80,10 @@ async def delete_document(
     principal: Principal = Depends(require("document:delete")),
     session: AsyncSession = Depends(get_db),
 ) -> None:
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     repo = DocumentRepository(session, principal.tenant_id)
     doc = await repo.get_active_for_owner(document_id, principal.user_id)
     if doc is None:
         raise NotFoundError(f"Document {document_id} not found")
-    doc.deleted_at = datetime.now(timezone.utc).replace(tzinfo=None)
+    doc.deleted_at = datetime.now(UTC).replace(tzinfo=None)

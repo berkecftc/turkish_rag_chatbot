@@ -22,10 +22,9 @@ Streaming variant streams tokens from step 12 while steps 13-16 run post-stream.
 """
 from __future__ import annotations
 
-import uuid
 import math
-from datetime import datetime, timezone
-from typing import AsyncIterator
+import uuid
+from collections.abc import AsyncIterator
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -44,8 +43,8 @@ from app.infrastructure.rag.memory.store import ConversationMemoryStore, MemoryM
 from app.infrastructure.rag.observability.tracker import RetrievalTracker, TurnMetrics
 from app.infrastructure.rag.query.processor import TurkishQueryProcessor
 from app.infrastructure.rag.query.rewriter import QueryRewriter
-from app.infrastructure.rag.reranking.bge_reranker import BgeRerankerEngine
 from app.infrastructure.rag.reliability.source_scorer import SourceReliabilityScorer
+from app.infrastructure.rag.reranking.bge_reranker import BgeRerankerEngine
 from app.infrastructure.rag.retrieval.bm25_search import BM25SearchEngine
 from app.infrastructure.rag.retrieval.hybrid import HybridRetriever
 from app.infrastructure.rag.retrieval.vector_search import VectorSearchEngine
@@ -56,19 +55,15 @@ from app.modules.rag.repository import (
     ConversationRepository,
     MessageRepository,
     RetrievalLogRepository,
-    SemanticCacheRepository,
 )
 from app.modules.rag.schemas import (
     ChatRequest,
     ChatResponse,
     CitationOut,
     DebugResponse,
-    MetadataFilter,
     SearchRequest,
     SearchResponse,
     SearchResultItem,
-    StreamDelta,
-    StreamDone,
 )
 
 log = get_logger("rag.service")
@@ -92,7 +87,7 @@ class RagService:
     def __init__(self, session: AsyncSession, redis_client) -> None:
         self._session = session
         self._redis = redis_client
-        cfg = get_settings()
+        get_settings()
 
         # AI adapters
         self._embedder = BgeM3Embedder()
@@ -334,7 +329,11 @@ class RagService:
         )
         if cached:
             yield {"type": "delta", "content": cached.get("content", "")}
-            yield {"type": "done", **{k: v for k, v in cached.items() if k != "content"}, "cached": True}
+            yield {
+                "type": "done",
+                **{k: v for k, v in cached.items() if k != "content"},
+                "cached": True,
+            }
             return
 
         async with self._tracker.measure("retrieval"):
@@ -532,6 +531,7 @@ class RagService:
 
     async def _annotate_reliability(self, chunks, tenant_id: uuid.UUID) -> None:
         from sqlalchemy import func, select
+
         from app.modules.rag.models import Citation as CitModel
 
         # Load citation frequency for all document IDs in the result set

@@ -3,12 +3,10 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Any, AsyncIterator
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.modules.rag.models import MessageRole
-
 
 # ── Conversation ─────────────────────────────────────────────────────────────
 

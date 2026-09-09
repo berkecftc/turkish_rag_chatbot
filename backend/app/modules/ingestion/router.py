@@ -8,10 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Principal, get_db, get_principal
 from app.core.exceptions import NotFoundError
+from app.core.logging import get_logger
 from app.modules.ingestion.models import JobStatus
 from app.modules.ingestion.repository import ChunkRepository, IngestionJobRepository
 from app.modules.ingestion.schemas import ChunkOut, JobStatusOut
 
+log = get_logger("ingestion")
 router = APIRouter(prefix="/ingestion", tags=["ingestion"])
 
 
@@ -61,7 +63,9 @@ async def list_chunks(
     return [ChunkOut.model_validate(c) for c in chunks]
 
 
-@router.post("/jobs/{job_id}/retry", response_model=JobStatusOut, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/jobs/{job_id}/retry", response_model=JobStatusOut, status_code=status.HTTP_202_ACCEPTED
+)
 async def retry_job(
     job_id: uuid.UUID,
     principal: Principal = Depends(get_principal),
@@ -82,10 +86,14 @@ async def retry_job(
         from app.workers.tasks import ingest_document
 
         ingest_document.apply_async(
-            kwargs={"document_id": str(job.document_id), "tenant_id": str(job.tenant_id), "job_id": str(job_id)},
+            kwargs={
+                "document_id": str(job.document_id),
+                "tenant_id": str(job.tenant_id),
+                "job_id": str(job_id),
+            },
             task_id=str(job_id),
         )
     except Exception:  # noqa: BLE001
-        pass
+        log.warning("ingestion.enqueue_failed", job_id=str(job_id))
 
     return JobStatusOut.model_validate(job)

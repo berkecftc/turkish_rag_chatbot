@@ -9,7 +9,6 @@ from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     BigInteger,
     Boolean,
-    Enum as SAEnum,
     Float,
     ForeignKey,
     Integer,
@@ -17,7 +16,11 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import get_settings
@@ -45,7 +48,7 @@ class Conversation(UUIDMixin, TimestampMixin, Base):
     meta: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    messages: Mapped[list["Message"]] = relationship(
+    messages: Mapped[list[Message]] = relationship(
         back_populates="conversation", cascade="all, delete-orphan", order_by="Message.created_at"
     )
 
@@ -83,7 +86,7 @@ class Message(UUIDMixin, Base):
     created_at: Mapped[datetime] = mapped_column(server_default=func.now(), index=True)
 
     conversation: Mapped[Conversation] = relationship(back_populates="messages")
-    citations: Mapped[list["Citation"]] = relationship(
+    citations: Mapped[list[Citation]] = relationship(
         back_populates="message", cascade="all, delete-orphan"
     )
 

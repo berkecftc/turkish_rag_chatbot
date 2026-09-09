@@ -63,9 +63,11 @@ class PaddleOcrStage:
             raise RuntimeError("pdf2image not installed") from exc
 
         blocks: list[TextBlock] = []
-        images = convert_from_bytes(pdf_bytes, dpi=self._settings.ocr_dpi, first_page=min(pages), last_page=max(pages))
+        images = convert_from_bytes(
+            pdf_bytes, dpi=self._settings.ocr_dpi, first_page=min(pages), last_page=max(pages)
+        )
 
-        for img, page_num in zip(images, range(min(pages), max(pages) + 1)):
+        for img, page_num in zip(images, range(min(pages), max(pages) + 1), strict=False):
             if page_num not in pages:
                 continue
             buf = io.BytesIO()

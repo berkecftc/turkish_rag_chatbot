@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import hashlib
 import uuid
-from datetime import datetime
 from typing import BinaryIO
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -139,7 +138,8 @@ class DocumentUploadService:
     @staticmethod
     def _dispatch_celery(document_id: str, tenant_id: str, job_id: str) -> None:
         try:
-            from app.workers.tasks import ingest_document  # lazy import avoids Celery at import time
+            # Lazy import: keeps Celery out of the web app's import path.
+            from app.workers.tasks import ingest_document
 
             ingest_document.apply_async(
                 kwargs={"document_id": document_id, "tenant_id": tenant_id, "job_id": job_id},

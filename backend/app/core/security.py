@@ -6,7 +6,7 @@ Pure functions over crypto primitives — no DB, no framework. Token revocation
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import jwt
@@ -35,7 +35,7 @@ def needs_rehash(hashed: str) -> bool:
 
 
 def _encode(claims: dict[str, Any], ttl_seconds: int, token_type: str) -> tuple[str, str]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     jti = str(uuid.uuid4())
     payload = {
         **claims,

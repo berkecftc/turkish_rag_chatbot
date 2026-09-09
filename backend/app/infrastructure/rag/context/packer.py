@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -36,7 +36,7 @@ class PackedContext:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     mag_a = math.sqrt(sum(x * x for x in a))
     mag_b = math.sqrt(sum(x * x for x in b))
     if mag_a == 0 or mag_b == 0:
@@ -69,7 +69,10 @@ class ContextPacker:
             # Semantic deduplication using chunk embeddings if available
             chunk_emb = chunk.chunk_metadata.get("embedding")
             if chunk_emb and included_embeddings:
-                if any(_cosine(chunk_emb, e) >= _DEDUP_SIMILARITY_THRESHOLD for e in included_embeddings):
+                if any(
+                    _cosine(chunk_emb, e) >= _DEDUP_SIMILARITY_THRESHOLD
+                    for e in included_embeddings
+                ):
                     continue
 
             chunk_tokens = chunk.token_count or _approx_tokens(chunk.content)

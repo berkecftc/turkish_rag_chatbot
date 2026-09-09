@@ -90,10 +90,15 @@ class ConversationMemoryStore:
         old_text = "\n".join(f"{m.role}: {m.content}" for m in old_messages)
         try:
             summary = await self._llm.generate(
-                system="Summarize the following conversation concisely, preserving key facts and decisions.",
+                system=(
+                    "Summarize the following conversation concisely, "
+                    "preserving key facts and decisions."
+                ),
                 messages=[{"role": "user", "content": old_text}],
             )
-            summary_msg = MemoryMessage(role="system", content=f"[Earlier context summary]: {summary}")
+            summary_msg = MemoryMessage(
+                role="system", content=f"[Earlier context summary]: {summary}"
+            )
             return [summary_msg] + list(recent_messages)
         except Exception as exc:
             log.warning("memory.summarize_failed", error=str(exc))

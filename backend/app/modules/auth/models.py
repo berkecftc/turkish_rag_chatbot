@@ -4,8 +4,9 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, String, Table, Column, UniqueConstraint
-from sqlalchemy.dialects.postgresql import INET, UUID as PgUUID
+from sqlalchemy import Boolean, Column, ForeignKey, String, Table, UniqueConstraint
+from sqlalchemy.dialects.postgresql import INET
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, TimestampMixin, UUIDMixin
@@ -28,7 +29,7 @@ class User(UUIDMixin, TimestampMixin, Base):
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
     last_login_at: Mapped[datetime | None] = mapped_column()
 
-    memberships: Mapped[list["Membership"]] = relationship(back_populates="user")
+    memberships: Mapped[list[Membership]] = relationship(back_populates="user")
 
 
 class Permission(UUIDMixin, Base):

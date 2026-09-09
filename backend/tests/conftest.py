@@ -247,14 +247,36 @@ async def object_storage(docker_available: bool, test_settings: Settings):
         yield mock_storage
         return
 
-    # Real Storage Container Flow (requires dockerized S3/MinIO)
+    # Real Storage Container Flow (requires dockerized S3/MinIO).
+    # The container is started with the *same* credentials the app settings
+    # carry (they come from the environment, e.g. the CI job env), so the
+    # fixture stays self-consistent regardless of where it runs.
+    import time
+
     from testcontainers.core.container import DockerContainer
-    with DockerContainer("minio/minio").with_exposed_ports(9000).with_command("server /data") as minio:
+
+    minio = (
+        DockerContainer("minio/minio")
+        .with_env("MINIO_ROOT_USER", test_settings.storage_access_key)
+        .with_env("MINIO_ROOT_PASSWORD", test_settings.storage_secret_key)
+        .with_exposed_ports(9000)
+        .with_command("server /data")
+    )
+    with minio:
         host = minio.get_container_host_ip()
         port = minio.get_exposed_port(9000)
         test_settings.storage_endpoint = f"http://{host}:{port}"
         storage = MinioStorage(test_settings)
-        storage.ensure_bucket()
+        # MinIO needs a moment before it accepts S3 calls; retry instead of racing.
+        deadline = time.monotonic() + 30
+        while True:
+            try:
+                storage.ensure_bucket()
+                break
+            except Exception:
+                if time.monotonic() >= deadline:
+                    raise
+                time.sleep(1)
         yield storage
 
 

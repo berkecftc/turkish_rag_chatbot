@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 import httpx
 
@@ -28,7 +28,9 @@ class GeminiLLM:
         cfg = get_settings()
         self._api_key = cfg.gemini_api_key
         self._model_name = cfg.gemini_model
-        self._temperature = temperature if temperature is not None else cfg.rag_generation_temperature
+        self._temperature = (
+            temperature if temperature is not None else cfg.rag_generation_temperature
+        )
         self._max_tokens = max_tokens or cfg.rag_generation_max_tokens
         self._client = None
 
@@ -101,7 +103,9 @@ class OllamaLLM:
         cfg = get_settings()
         self._base_url = cfg.ollama_base_url
         self._model = cfg.ollama_model
-        self._temperature = temperature if temperature is not None else cfg.rag_generation_temperature
+        self._temperature = (
+            temperature if temperature is not None else cfg.rag_generation_temperature
+        )
         self._max_tokens = max_tokens or cfg.rag_generation_max_tokens
 
     def _build_messages(self, system: str, messages: list[dict]) -> list[dict]:
@@ -145,7 +149,9 @@ class OllamaLLM:
                         break
 
 
-def get_llm(temperature: float | None = None, max_tokens: int | None = None) -> GeminiLLM | OllamaLLM:
+def get_llm(
+    temperature: float | None = None, max_tokens: int | None = None
+) -> GeminiLLM | OllamaLLM:
     """Return the configured LLM adapter."""
     cfg = get_settings()
     if cfg.llm_provider == "ollama":

@@ -40,7 +40,7 @@ class ValidationResult:
 
 
 def _cosine(a: list[float], b: list[float]) -> float:
-    dot = sum(x * y for x, y in zip(a, b))
+    dot = sum(x * y for x, y in zip(a, b, strict=False))
     n_a = math.sqrt(sum(x * x for x in a))
     n_b = math.sqrt(sum(x * x for x in b))
     if n_a == 0 or n_b == 0:
@@ -90,7 +90,7 @@ class HallucinationValidator:
         per_sentence: list[tuple[str, float]] = []
         flags: list[str] = []
 
-        for sent, emb in zip(sentences, sent_embeddings):
+        for sent, emb in zip(sentences, sent_embeddings, strict=True):
             max_sim = max(_cosine(emb.dense, ce) for ce in chunk_embeddings)
             per_sentence.append((sent, max_sim))
             if max_sim < self._threshold:

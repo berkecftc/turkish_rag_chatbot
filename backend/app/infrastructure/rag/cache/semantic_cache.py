@@ -15,9 +15,8 @@ Storage: PostgreSQL (semantic_cache table) rather than Redis because:
 from __future__ import annotations
 
 import hashlib
-import json
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,7 +41,8 @@ class SemanticCacheLayer:
         cfg = get_settings()
         self._ttl = cfg.rag_semantic_cache_ttl_seconds
         self._sim_threshold = cfg.rag_cache_similarity_threshold
-        self._repo = SemanticCacheRepository(self._session, uuid.UUID(int=0))  # dummy; we override tenant per call
+        # Placeholder tenant id; the real tenant is passed per call.
+        self._repo = SemanticCacheRepository(self._session, uuid.UUID(int=0))
 
     async def lookup(
         self,
@@ -61,7 +61,7 @@ class SemanticCacheLayer:
             SemanticCache.tenant_id == tenant_id,
             SemanticCache.user_id == user_id,
             SemanticCache.query_hash == q_hash,
-            SemanticCache.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
+            SemanticCache.expires_at > datetime.now(UTC).replace(tzinfo=None),
         )
         exact = (await self._session.execute(stmt)).scalar_one_or_none()
         if exact is not None:
@@ -93,7 +93,7 @@ class SemanticCacheLayer:
         response: dict,
     ) -> None:
         q_hash = _cache_key(tenant_id, user_id, query)
-        expires = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(seconds=self._ttl)
+        expires = datetime.now(UTC).replace(tzinfo=None) + timedelta(seconds=self._ttl)
         entry = SemanticCache(
             tenant_id=tenant_id,
             user_id=user_id,

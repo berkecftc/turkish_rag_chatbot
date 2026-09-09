@@ -18,9 +18,9 @@ from __future__ import annotations
 
 import time
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
-from typing import AsyncIterator
 
 from app.core.logging import get_logger
 
@@ -34,8 +34,16 @@ try:
     _rerank_latency = Histogram("rag_rerank_latency_ms", "Reranker latency (ms)")
     _generation_latency = Histogram("rag_generation_latency_ms", "Generation latency (ms)")
     _total_latency = Histogram("rag_total_latency_ms", "Total RAG latency (ms)")
-    _confidence = Histogram("rag_confidence_score", "Confidence score distribution", buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0])
-    _context_tokens = Histogram("rag_context_tokens", "Context token count", buckets=[500, 1000, 2000, 4000, 8000, 12000, 16000])
+    _confidence = Histogram(
+        "rag_confidence_score",
+        "Confidence score distribution",
+        buckets=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+    )
+    _context_tokens = Histogram(
+        "rag_context_tokens",
+        "Context token count",
+        buckets=[500, 1000, 2000, 4000, 8000, 12000, 16000],
+    )
     _PROMETHEUS = True
 except ImportError:
     _PROMETHEUS = False

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import StreamingResponse

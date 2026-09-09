@@ -17,7 +17,8 @@ from app.infrastructure.rag.query.processor import ProcessedQuery, QueryIntent
 
 log = get_logger("query.rewriter")
 
-_REWRITE_SYSTEM = """You are a query optimization expert for a Turkish enterprise document retrieval system.
+_REWRITE_SYSTEM = """\
+You are a query optimization expert for a Turkish enterprise document retrieval system.
 Your task is to rewrite and expand user queries to maximize retrieval quality.
 
 RULES:

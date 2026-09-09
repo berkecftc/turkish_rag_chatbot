@@ -81,7 +81,7 @@ jobs:
           RABBITMQ_DEFAULT_USER: rag
           RABBITMQ_DEFAULT_PASS: rag
         ports: ["5672:5672"]
-      
+    env:
       APP_ENV: test
       DATABASE_URL: postgresql+asyncpg://rag:rag@localhost:5432/rag_test
       REDIS_URL: redis://localhost:6379/0

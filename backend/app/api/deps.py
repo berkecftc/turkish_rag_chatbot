@@ -5,8 +5,8 @@ This is the composition root for request-scoped wiring (DI).
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import AsyncIterator
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer

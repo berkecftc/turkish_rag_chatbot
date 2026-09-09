@@ -18,7 +18,8 @@ from app.infrastructure.rag.context.packer import PackedContext
 
 log = get_logger("context.compressor")
 
-_COMPRESS_SYSTEM = """You are a context compression assistant for an enterprise document retrieval system.
+_COMPRESS_SYSTEM = """\
+You are a context compression assistant for an enterprise document retrieval system.
 
 Your task:
 - Read the retrieved document passages below.

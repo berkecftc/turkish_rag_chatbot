@@ -75,7 +75,9 @@ SELECT
     c.page,
     c.section,
     c.token_count,
-    ts_rank_cd(to_tsvector('simple', c.content), plainto_tsquery('simple', :query_text), 32) AS bm25_score,
+    ts_rank_cd(
+        to_tsvector('simple', c.content), plainto_tsquery('simple', :query_text), 32
+    ) AS bm25_score,
     d.title                                                                 AS document_title,
     d.source_type,
     d.storage_key,

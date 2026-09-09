@@ -6,8 +6,8 @@ dependency also sets `app.tenant_id` for Postgres Row-Level Security.
 from __future__ import annotations
 
 import uuid
+from collections.abc import AsyncIterator
 from datetime import datetime
-from typing import AsyncIterator
 
 from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID

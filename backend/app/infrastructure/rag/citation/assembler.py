@@ -52,7 +52,7 @@ class CitationAssembler:
         response_text: str,
     ) -> list[AssembledCitation]:
         """Return only citations actually referenced in the response text."""
-        used_numbers = set(int(n) for n in re.findall(r"\[(\d+)\]", response_text))
+        used_numbers = {int(n) for n in re.findall(r"\[(\d+)\]", response_text)}
         if not used_numbers:
             return citations  # return all if response has no inline refs
         return [c for c in citations if c.citation_number in used_numbers]

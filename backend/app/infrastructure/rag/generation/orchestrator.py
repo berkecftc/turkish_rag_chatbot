@@ -14,7 +14,7 @@ window pollution and reducing injection surface.
 """
 from __future__ import annotations
 
-from typing import AsyncIterator
+from collections.abc import AsyncIterator
 
 from app.core.logging import get_logger
 from app.infrastructure.rag.context.packer import PackedContext
@@ -44,7 +44,8 @@ You are an intelligent enterprise knowledge assistant specialized in Turkish bus
 2. Every factual statement MUST reference a source with inline citation [N].
 3. If the context is insufficient to answer, state explicitly:
    - Turkish: "Sağlanan belgelerden bu soruya yeterli bilgi bulunamadı."
-   - English: "The provided documents do not contain sufficient information to answer this question."
+   - English: "The provided documents do not contain sufficient information \
+to answer this question."
 4. Respond in the SAME LANGUAGE as the user's question.
 5. Be precise, professional, and concise.
 

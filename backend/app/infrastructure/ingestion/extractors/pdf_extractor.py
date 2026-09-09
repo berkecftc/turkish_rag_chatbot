@@ -7,7 +7,7 @@ import io
 from app.core.config import get_settings
 from app.core.logging import get_logger
 from app.domain.ports import TextBlock
-from app.workers.pipeline import IngestionContext, Stage
+from app.workers.pipeline import IngestionContext
 
 log = get_logger("extractor.pdf")
 
@@ -38,5 +38,10 @@ class PdfExtractorStage:
         ctx.blocks = blocks
         ctx.metadata["sparse_pages"] = sparse_pages
         ctx.metadata["page_count"] = len(reader.pages)
-        log.info("pdf.extracted", document_id=ctx.document_id, pages=len(reader.pages), sparse=len(sparse_pages))
+        log.info(
+            "pdf.extracted",
+            document_id=ctx.document_id,
+            pages=len(reader.pages),
+            sparse=len(sparse_pages),
+        )
         return ctx

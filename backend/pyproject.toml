@@ -82,6 +82,23 @@ target-version = "py311"
 select = ["E", "F", "I", "B", "UP", "ASYNC", "S", "C4"]
 ignore = ["S101"]  # allow asserts in tests
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom: `Depends()` (and friends) in argument
+# defaults is intentional, not a B008 mutable-default bug.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.params.Depends",
+    "fastapi.Security",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.File",
+    "fastapi.Form",
+    "app.api.deps.require",
+]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
@@ -108,4 +125,20 @@ modules = [
     "app.modules.rag",
     "app.modules.audit",
     "app.modules.admin",
+]
+# Known, accepted couplings. This is an explicit allowlist: any *new* cross-module
+# import still fails CI. Each entry should eventually be replaced by a port in
+# `app.domain.ports` or a public service call.
+ignore_imports = [
+    # Modules enqueue background work through the Celery task registry. The
+    # worker layer is a composition root and may depend on every module.
+    "app.modules.** -> app.workers.tasks",
+    # documents <-> ingestion form a single "document lifecycle" context: an
+    # upload creates an IngestionJob, and job queries join Document for
+    # per-user ownership checks.
+    "app.modules.documents.service -> app.modules.ingestion.models",
+    "app.modules.documents.service -> app.modules.ingestion.repository",
+    "app.modules.ingestion.repository -> app.modules.documents.models",
+    # /auth/me reports the caller's tenant name and slug.
+    "app.modules.auth.router -> app.modules.tenancy.models",
 ]

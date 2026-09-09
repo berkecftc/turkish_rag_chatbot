@@ -75,7 +75,9 @@ class TokenChunkerStage:
             # Oversized single sentence: emit as its own chunk.
             if t > self._max_tokens:
                 if buf:
-                    chunks.append(self._make_chunk(chunk_idx, buf, buf_tokens, buf_pages, enc, char_pos))
+                    chunks.append(
+                        self._make_chunk(chunk_idx, buf, buf_tokens, buf_pages, enc, char_pos)
+                    )
                     char_pos += sum(len(s) for s in buf)
                     chunk_idx += 1
                     buf, buf_tokens, buf_pages = [], 0, []
@@ -88,14 +90,16 @@ class TokenChunkerStage:
                 continue
 
             if buf_tokens + t > self._max_tokens and buf_tokens >= self._min_tokens:
-                chunks.append(self._make_chunk(chunk_idx, buf, buf_tokens, buf_pages, enc, char_pos))
+                chunks.append(
+                    self._make_chunk(chunk_idx, buf, buf_tokens, buf_pages, enc, char_pos)
+                )
                 char_pos += sum(len(s) for s in buf)
                 chunk_idx += 1
                 # Overlap: keep trailing sentences that fit within overlap budget.
                 overlap_buf: list[str] = []
                 overlap_pages: list[int | None] = []
                 overlap_tokens = 0
-                for s, p in reversed(list(zip(buf, buf_pages))):
+                for s, p in reversed(list(zip(buf, buf_pages, strict=True))):
                     st = _count_tokens(s, enc)
                     if overlap_tokens + st > self._overlap:
                         break

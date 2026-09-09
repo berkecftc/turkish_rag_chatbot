@@ -8,7 +8,6 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
-    Enum as SAEnum,
     ForeignKey,
     Integer,
     String,
@@ -16,7 +15,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import get_settings
@@ -75,7 +78,12 @@ class Chunk(UUIDMixin, Base):
     char_end: Mapped[int | None] = mapped_column(Integer)
     chunk_strategy: Mapped[str | None] = mapped_column(String(32))
     embedding_status: Mapped[EmbeddingStatus] = mapped_column(
-        SAEnum(EmbeddingStatus, name="embedding_status", native_enum=True, values_callable=lambda x: [e.value for e in x]),
+        SAEnum(
+            EmbeddingStatus,
+            name="embedding_status",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=EmbeddingStatus.PENDING,
     )
     meta: Mapped[dict] = mapped_column("metadata", JSONB, default=dict)
@@ -90,12 +98,22 @@ class IngestionJob(UUIDMixin, Base):
         ForeignKey("documents.id", ondelete="CASCADE"), index=True
     )
     status: Mapped[JobStatus] = mapped_column(
-        SAEnum(JobStatus, name="job_status", native_enum=True, values_callable=lambda x: [e.value for e in x]),
+        SAEnum(
+            JobStatus,
+            name="job_status",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=JobStatus.QUEUED,
         index=True,
     )
     stage: Mapped[IngestionStage] = mapped_column(
-        SAEnum(IngestionStage, name="ingestion_stage", native_enum=True, values_callable=lambda x: [e.value for e in x]),
+        SAEnum(
+            IngestionStage,
+            name="ingestion_stage",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=IngestionStage.QUEUED,
     )
     progress: Mapped[int] = mapped_column(Integer, default=0)
@@ -115,7 +133,13 @@ class ProcessingFailure(UUIDMixin, Base):
     job_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("ingestion_jobs.id", ondelete="CASCADE"))
     document_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
     stage: Mapped[IngestionStage] = mapped_column(
-        SAEnum(IngestionStage, name="ingestion_stage", native_enum=True, create_type=False, values_callable=lambda x: [e.value for e in x])
+        SAEnum(
+            IngestionStage,
+            name="ingestion_stage",
+            native_enum=True,
+            create_type=False,
+            values_callable=lambda x: [e.value for e in x],
+        )
     )
     category: Mapped[str] = mapped_column(String(32))
     error_type: Mapped[str] = mapped_column(String(255))

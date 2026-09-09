@@ -2,14 +2,20 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
-from typing import Sequence
+from collections.abc import Sequence
+from datetime import UTC, datetime
 
 from sqlalchemy import select, update
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.repository import TenantScopedRepository, BaseRepository
-from app.modules.rag.models import Citation, Conversation, Message, MessageRole, RetrievalLog, SemanticCache
+from app.infrastructure.repository import TenantScopedRepository
+from app.modules.rag.models import (
+    Citation,
+    Conversation,
+    Message,
+    RetrievalLog,
+    SemanticCache,
+)
 
 
 class ConversationRepository(TenantScopedRepository[Conversation]):
@@ -36,7 +42,7 @@ class ConversationRepository(TenantScopedRepository[Conversation]):
             update(Conversation)
             .where(Conversation.id == conversation_id)
             .values(
-                last_message_at=datetime.now(timezone.utc).replace(tzinfo=None),
+                last_message_at=datetime.now(UTC).replace(tzinfo=None),
                 total_messages=Conversation.total_messages + 1,
             )
         )

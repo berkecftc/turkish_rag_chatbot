@@ -7,7 +7,6 @@ from datetime import datetime
 
 from sqlalchemy import (
     BigInteger,
-    Enum as SAEnum,
     ForeignKey,
     Index,
     Integer,
@@ -17,7 +16,11 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PgUUID
+from sqlalchemy import (
+    Enum as SAEnum,
+)
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db import Base, TimestampMixin, UUIDMixin
@@ -59,10 +62,20 @@ class Document(UUIDMixin, TimestampMixin, Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(PgUUID(as_uuid=True))
     title: Mapped[str] = mapped_column(String(512))
     source_type: Mapped[DocumentSource] = mapped_column(
-        SAEnum(DocumentSource, name="document_source", native_enum=True, values_callable=lambda x: [e.value for e in x])
+        SAEnum(
+            DocumentSource,
+            name="document_source",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        )
     )
     status: Mapped[DocumentStatus] = mapped_column(
-        SAEnum(DocumentStatus, name="document_status", native_enum=True, values_callable=lambda x: [e.value for e in x]),
+        SAEnum(
+            DocumentStatus,
+            name="document_status",
+            native_enum=True,
+            values_callable=lambda x: [e.value for e in x],
+        ),
         default=DocumentStatus.PENDING,
         index=True,
     )
@@ -76,7 +89,7 @@ class Document(UUIDMixin, TimestampMixin, Base):
     error: Mapped[str | None] = mapped_column(Text)
     deleted_at: Mapped[datetime | None] = mapped_column()
 
-    versions: Mapped[list["DocumentVersion"]] = relationship(
+    versions: Mapped[list[DocumentVersion]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
 

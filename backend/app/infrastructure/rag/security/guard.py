@@ -70,7 +70,11 @@ class PromptSecurityGuard:
 
         for pattern in _QUERY_INJECTION_PATTERNS:
             if pattern.search(query):
-                log.warning("security.injection_detected", pattern=pattern.pattern[:50], query=query[:100])
+                log.warning(
+                    "security.injection_detected",
+                    pattern=pattern.pattern[:50],
+                    query=query[:100],
+                )
                 raise PromptInjectionError("Potentially malicious query detected")
 
         return query.strip()

@@ -7,9 +7,9 @@ providers and test without network calls.
 """
 from __future__ import annotations
 
-import uuid
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
-from typing import AsyncIterator, BinaryIO, Protocol, runtime_checkable
+from typing import BinaryIO, Protocol, runtime_checkable
 
 
 @dataclass(slots=True)

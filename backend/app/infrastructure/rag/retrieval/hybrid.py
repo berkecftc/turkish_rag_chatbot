@@ -70,9 +70,13 @@ class HybridRetriever:
         sub_embeddings: list[list[float]] | None = None,
     ) -> tuple[list[FusedResult], float, float]:
         """Returns (fused_results, vector_weight, bm25_weight)."""
-        vector_w, bm25_w = _ADAPTIVE_WEIGHTS.get(intent, (self._default_vector_w, self._default_bm25_w))
+        vector_w, bm25_w = _ADAPTIVE_WEIGHTS.get(
+            intent, (self._default_vector_w, self._default_bm25_w)
+        )
 
-        doc_ids = [str(d) for d in filters.document_ids] if filters and filters.document_ids else None
+        doc_ids = (
+            [str(d) for d in filters.document_ids] if filters and filters.document_ids else None
+        )
         src_types = filters.source_types if filters and filters.source_types else None
 
         # Primary retrieval
@@ -98,7 +102,7 @@ class HybridRetriever:
 
         # Multi-hop: sub-questions
         if sub_questions and sub_embeddings:
-            for sub_q, sub_emb in zip(sub_questions[:2], sub_embeddings[:2]):
+            for sub_q, sub_emb in zip(sub_questions[:2], sub_embeddings[:2], strict=False):
                 tasks.append(
                     self._vector.search(
                         tenant_id=tenant_id,

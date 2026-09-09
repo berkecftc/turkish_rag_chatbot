@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import math
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.core.config import get_settings
 from app.core.logging import get_logger
@@ -30,8 +30,8 @@ def _freshness_score(doc_updated_at: str, decay_days: int) -> float:
     try:
         updated = datetime.fromisoformat(doc_updated_at.replace("Z", "+00:00"))
         if updated.tzinfo is None:
-            updated = updated.replace(tzinfo=timezone.utc)
-        age_days = (datetime.now(timezone.utc) - updated).days
+            updated = updated.replace(tzinfo=UTC)
+        age_days = (datetime.now(UTC) - updated).days
         return math.exp(-age_days / decay_days)
     except (ValueError, TypeError, AttributeError):
         return 0.5  # unknown freshness

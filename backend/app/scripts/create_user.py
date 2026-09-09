@@ -100,7 +100,10 @@ async def create_user() -> None:
             tenant=tenant.slug,
             role=ROLE_NAME,
         )
-        print(f"\n  OK  login -> email={EMAIL}  password={PASSWORD}  (tenant={tenant.slug}, role={ROLE_NAME})\n")
+        print(
+            f"\n  OK  login -> email={EMAIL}  password={PASSWORD}"
+            f"  (tenant={tenant.slug}, role={ROLE_NAME})\n"
+        )
 
 
 if __name__ == "__main__":
