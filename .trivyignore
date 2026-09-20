@@ -1,5 +1,8 @@
-# Starlette CVE-2026-48818 / CVE-2026-54283: fix starlette 1.x'te,
-# FastAPI henüz 1.x'i desteklemiyor. FastAPI güncellenince kaldır.
-# Gözden geçirme: 2026-08
-CVE-2026-48818
-CVE-2026-54283
+# No active suppressions.
+#
+# The previous Starlette entries (CVE-2026-48818 / CVE-2026-54283) are gone:
+# uv.lock now pins starlette 1.6.0, where both are fixed, and the scan reads
+# that lockfile — the same versions the image installs.
+#
+# Add an entry only for a CVE with no available fix, with the reason and a
+# review date.

@@ -23,19 +23,23 @@ jobs:
     defaults: { run: { working-directory: backend } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
+          version: "0.12.17"
+          # Pinned so CI resolves against the same interpreter the image uses;
+          # uv would otherwise pick the newest that satisfies requires-python.
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-      - name: Install dev deps
-        run: pip install ".[dev]"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - name: Install dev deps (from uv.lock)
+        run: uv sync --locked --extra dev
       - name: Ruff (lint)
-        run: ruff check app
+        run: uv run ruff check app
       - name: Import-linter (module boundaries)
-        run: lint-imports
+        run: uv run lint-imports
       # mypy --strict is aspirational on this codebase; advisory until clean.
       - name: Mypy (advisory)
-        run: mypy app || true
+        run: uv run mypy app || true
 
   frontend-quality:
     runs-on: ubuntu-latest
@@ -95,10 +99,14 @@ jobs:
       HF_HOME: /home/runner/.cache/huggingface
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
+          version: "0.12.17"
+          # Pinned so CI resolves against the same interpreter the image uses;
+          # uv would otherwise pick the newest that satisfies requires-python.
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
       - name: System deps (OCR/PDF)
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-tur poppler-utils
       - name: Cache HF embedding models
@@ -106,8 +114,8 @@ jobs:
         with:
           path: /home/runner/.cache/huggingface
           key: hf-models-${{ runner.os }}-bge-m3
-      - name: Install deps
-        run: pip install ".[dev]"
+      - name: Install deps (from uv.lock)
+        run: uv sync --locked --extra dev
       - name: Start MinIO
         run: |
           # Community images live on quay.io; minio/minio was pulled from Docker Hub.
@@ -134,11 +142,11 @@ jobs:
             echo "JWT_PUBLIC_KEY<<EOF"; cat /tmp/jwt.pub; echo "EOF"
           } >> "$GITHUB_ENV"
       - name: Migrations
-        run: alembic upgrade head
+        run: uv run alembic upgrade head
       - name: Unit tests
-        run: pytest tests/unit -x
+        run: uv run pytest tests/unit -x
       - name: Integration tests
-        run: pytest tests/integration -x
+        run: uv run pytest tests/integration -x
       - name: Debug minio logs
         if: failure()
         working-directory: .
@@ -161,13 +169,17 @@ jobs:
       STORAGE_SECRET_KEY: minio123
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: astral-sh/setup-uv@v5
         with:
+          version: "0.12.17"
+          # Pinned so CI resolves against the same interpreter the image uses;
+          # uv would otherwise pick the newest that satisfies requires-python.
           python-version: ${{ env.PYTHON_VERSION }}
-          cache: pip
-      - run: pip install ".[dev]"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: uv sync --locked --extra dev
       - name: RAG quality evals (groundedness / hallucination)
-        run: pytest tests/evaluation -x
+        run: uv run pytest tests/evaluation -x
 
   # ── 6. Security scans ──────────────────────────────────────────────────────
   security:
