@@ -37,8 +37,11 @@ def create_app() -> FastAPI:
         title="Turkish RAG Platform API",
         version="0.1.0",
         lifespan=lifespan,
-        docs_url="/docs",
-        openapi_url="/openapi.json",
+        # Schema browsers are a development affordance: off in production so the
+        # full API surface isn't served to anything that reaches the container.
+        docs_url=None if settings.is_production else "/docs",
+        redoc_url=None if settings.is_production else "/redoc",
+        openapi_url=None if settings.is_production else "/openapi.json",
     )
 
     app.add_middleware(
