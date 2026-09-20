@@ -256,7 +256,8 @@ async def object_storage(docker_available: bool, test_settings: Settings):
     from testcontainers.core.container import DockerContainer
 
     minio = (
-        DockerContainer("minio/minio")
+        # Community images live on quay.io; minio/minio was pulled from Docker Hub.
+        DockerContainer("quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z")
         .with_env("MINIO_ROOT_USER", test_settings.storage_access_key)
         .with_env("MINIO_ROOT_PASSWORD", test_settings.storage_secret_key)
         .with_exposed_ports(9000)
