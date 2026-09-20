@@ -1,6 +1,8 @@
 """Sample integration test to verify dual-mode database and cache operations."""
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import text
@@ -30,8 +32,12 @@ async def test_db_session_ping(db_session: AsyncSession, docker_available: bool)
     if not docker_available:
         # In mock mode, check that AsyncMock resolves correctly
         assert db_session.commit is not None
-        # Mock execute returning a mock result
-        db_session.execute.return_value.fetchall.return_value = [(1,)]
+        # SQLAlchemy's Result is sync even though execute() is awaited, so the
+        # stand-in must be a MagicMock -- an AsyncMock would hand back a
+        # coroutine from fetchall() and never match.
+        result = MagicMock()
+        result.fetchall.return_value = [(1,)]
+        db_session.execute.return_value = result
         res = await db_session.execute(text("SELECT 1"))
         assert res.fetchall() == [(1,)]
     else:
