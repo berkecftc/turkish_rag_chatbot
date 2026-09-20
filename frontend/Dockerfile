@@ -3,8 +3,9 @@
 # docker-compose.override.yml (vite dev server with HMR).
 FROM node:20-alpine AS build
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm install
+COPY package.json package-lock.json ./
+# ci (not install) so the image build honours the lockfile, like CI does.
+RUN npm ci
 COPY . .
 RUN npm run build
 
